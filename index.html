@@ -1103,11 +1103,13 @@
         // Recipes View Component
         function RecipesView() {
             const [recipes, setRecipes] = useState([]);
+            const [recipeTags, setRecipeTags] = useState({});
             const [loading, setLoading] = useState(true);
             const [showAddRecipe, setShowAddRecipe] = useState(false);
             const [editingRecipe, setEditingRecipe] = useState(null);
             const [selectedRecipe, setSelectedRecipe] = useState(null);
             const [filter, setFilter] = useState('all');
+            const [tagFilter, setTagFilter] = useState(null);
 
             useEffect(() => {
                 loadRecipes();
@@ -1115,12 +1117,27 @@
 
             const loadRecipes = async () => {
                 try {
-                    const { data } = await supabase
+                    const { data: recipesData } = await supabase
                         .from('recipes')
                         .select('*')
                         .order('created_at', { ascending: false });
 
-                    setRecipes(data || []);
+                    // Load all tags
+                    const { data: tagsData } = await supabase
+                        .from('recipe_tags')
+                        .select('*');
+
+                    // Group tags by recipe
+                    const tagsByRecipe = {};
+                    tagsData?.forEach(tag => {
+                        if (!tagsByRecipe[tag.recipe_id]) {
+                            tagsByRecipe[tag.recipe_id] = [];
+                        }
+                        tagsByRecipe[tag.recipe_id].push(tag.tag);
+                    });
+
+                    setRecipes(recipesData || []);
+                    setRecipeTags(tagsByRecipe);
                     setLoading(false);
                 } catch (err) {
                     console.error('Error loading recipes:', err);
@@ -1156,7 +1173,15 @@
             };
 
             const filteredRecipes = recipes.filter(recipe => {
-                if (filter === 'favorites') return recipe.is_favorite;
+                // Favorites filter
+                if (filter === 'favorites' && !recipe.is_favorite) return false;
+                
+                // Tag filter
+                if (tagFilter) {
+                    const tags = recipeTags[recipe.id] || [];
+                    if (!tags.includes(tagFilter)) return false;
+                }
+                
                 return true;
             });
 
@@ -1168,34 +1193,57 @@
                 <div>
                     <div className="week-header">
                         <h1 className="week-title">Alla Recept</h1>
-                        <div style={{display: 'flex', gap: '1rem'}}>
-                            <button 
-                                className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'} btn-small`}
-                                onClick={() => setFilter('all')}
-                            >
-                                Alla
-                            </button>
-                            <button 
-                                className={`btn ${filter === 'favorites' ? 'btn-primary' : 'btn-secondary'} btn-small`}
-                                onClick={() => setFilter('favorites')}
-                            >
-                                ⭐ Favoriter
-                            </button>
-                            <button 
-                                className="btn btn-primary"
-                                onClick={() => setShowAddRecipe(true)}
-                            >
-                                + Lägg till recept
-                            </button>
-                        </div>
+                        <button 
+                            className="btn btn-primary"
+                            onClick={() => setShowAddRecipe(true)}
+                        >
+                            + Lägg till recept
+                        </button>
+                    </div>
+
+                    {/* Filters */}
+                    <div style={{display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap'}}>
+                        <button 
+                            className={`btn ${filter === 'all' && !tagFilter ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                            onClick={() => { setFilter('all'); setTagFilter(null); }}
+                        >
+                            Alla
+                        </button>
+                        <button 
+                            className={`btn ${filter === 'favorites' ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                            onClick={() => { setFilter('favorites'); setTagFilter(null); }}
+                        >
+                            ⭐ Favoriter
+                        </button>
+                        <div style={{borderLeft: '1px solid var(--border)', margin: '0 0.5rem'}}></div>
+                        <button 
+                            className={`btn ${tagFilter === 'matlåda' ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                            onClick={() => { setFilter('all'); setTagFilter(tagFilter === 'matlåda' ? null : 'matlåda'); }}
+                        >
+                            🥡 Matlåda
+                        </button>
+                        <button 
+                            className={`btn ${tagFilter === 'snabb' ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                            onClick={() => { setFilter('all'); setTagFilter(tagFilter === 'snabb' ? null : 'snabb'); }}
+                        >
+                            ⚡ Snabb
+                        </button>
+                        <button 
+                            className={`btn ${tagFilter === 'vegetarisk' ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                            onClick={() => { setFilter('all'); setTagFilter(tagFilter === 'vegetarisk' ? null : 'vegetarisk'); }}
+                        >
+                            🥬 Vegetarisk
+                        </button>
                     </div>
 
                     {filteredRecipes.length === 0 ? (
                         <div className="card text-center" style={{padding: '4rem'}}>
                             <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>
-                                {filter === 'favorites' ? 'Inga favoriter än' : 'Inga recept än. Skapa ditt första recept!'}
+                                {tagFilter ? `Inga recept med taggen "${tagFilter}"` : 
+                                 filter === 'favorites' ? 'Inga favoriter än' : 
+                                 'Inga recept än. Skapa ditt första recept!'}
                             </p>
-                            {filter === 'all' && (
+                            {filter === 'all' && !tagFilter && (
                                 <button className="btn btn-primary" onClick={() => setShowAddRecipe(true)}>
                                     + Skapa recept
                                 </button>
@@ -1203,34 +1251,49 @@
                         </div>
                     ) : (
                         <div className="recipe-grid">
-                            {filteredRecipes.map(recipe => (
-                                <div 
-                                    key={recipe.id} 
-                                    className="recipe-card"
-                                    onClick={() => setSelectedRecipe(recipe)}
-                                >
-                                    <button
-                                        className="recipe-favorite"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleToggleFavorite(recipe.id, recipe.is_favorite);
-                                        }}
+                            {filteredRecipes.map(recipe => {
+                                const tags = recipeTags[recipe.id] || [];
+                                return (
+                                    <div 
+                                        key={recipe.id} 
+                                        className="recipe-card"
+                                        onClick={() => setSelectedRecipe(recipe)}
                                     >
-                                        {recipe.is_favorite ? '⭐' : '☆'}
-                                    </button>
-                                    {recipe.image_url && (
-                                        <img src={recipe.image_url} alt={recipe.name} className="recipe-image" />
-                                    )}
-                                    <div className="recipe-content">
-                                        <h3 className="recipe-name">{recipe.name}</h3>
-                                        {recipe.description && (
-                                            <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem'}}>
-                                                {recipe.description.substring(0, 100)}...
-                                            </p>
+                                        <button
+                                            className="recipe-favorite"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleToggleFavorite(recipe.id, recipe.is_favorite);
+                                            }}
+                                        >
+                                            {recipe.is_favorite ? '⭐' : '☆'}
+                                        </button>
+                                        {recipe.image_url && (
+                                            <img src={recipe.image_url} alt={recipe.name} className="recipe-image" />
                                         )}
+                                        <div className="recipe-content">
+                                            <h3 className="recipe-name">{recipe.name}</h3>
+                                            {recipe.description && (
+                                                <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem'}}>
+                                                    {recipe.description.substring(0, 100)}...
+                                                </p>
+                                            )}
+                                            {tags.length > 0 && (
+                                                <div className="recipe-tags">
+                                                    {tags.map(tag => (
+                                                        <span key={tag} className="recipe-tag">
+                                                            {tag === 'matlåda' && '🥡'} 
+                                                            {tag === 'snabb' && '⚡'} 
+                                                            {tag === 'vegetarisk' && '🥬'} 
+                                                            {tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
@@ -1259,6 +1322,7 @@
                     {selectedRecipe && (
                         <RecipeDetailModal
                             recipe={selectedRecipe}
+                            tags={recipeTags[selectedRecipe.id] || []}
                             onClose={() => setSelectedRecipe(null)}
                             onDelete={handleDeleteRecipe}
                             onEdit={(recipe) => {
@@ -1281,7 +1345,18 @@
             const [instructions, setInstructions] = useState('');
             const [ingredients, setIngredients] = useState('');
             const [notes, setNotes] = useState('');
+            const [tags, setTags] = useState([]);
             const [saving, setSaving] = useState(false);
+
+            const availableTags = ['matlåda', 'snabb', 'vegetarisk'];
+
+            const toggleTag = (tag) => {
+                if (tags.includes(tag)) {
+                    setTags(tags.filter(t => t !== tag));
+                } else {
+                    setTags([...tags, tag]);
+                }
+            };
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -1304,6 +1379,15 @@
                         .single();
 
                     if (recipeError) throw recipeError;
+
+                    // Save tags
+                    if (tags.length > 0) {
+                        const tagData = tags.map(tag => ({
+                            recipe_id: recipeData.id,
+                            tag: tag
+                        }));
+                        await supabase.from('recipe_tags').insert(tagData);
+                    }
 
                     // Save ingredients (simple version - one per line)
                     if (ingredients.trim()) {
@@ -1365,6 +1449,23 @@
                                         onChange={(e) => setDescription(e.target.value)}
                                         rows="3"
                                     />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Taggar</label>
+                                    <div style={{display: 'flex', gap: '0.5rem', flexWrap: 'wrap'}}>
+                                        {availableTags.map(tag => (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                className={`recipe-tag ${tags.includes(tag) ? 'btn-primary' : 'btn-secondary'}`}
+                                                style={{cursor: 'pointer', border: tags.includes(tag) ? 'none' : '1px solid var(--border)', background: tags.includes(tag) ? 'var(--accent)' : 'var(--bg-secondary)', color: tags.includes(tag) ? 'white' : 'var(--text-secondary)'}}
+                                                onClick={() => toggleTag(tag)}
+                                            >
+                                                {tag === 'matlåda' && '🥡'} {tag === 'snabb' && '⚡'} {tag === 'vegetarisk' && '🥬'} {tag}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className="form-group">
@@ -1455,7 +1556,7 @@
         }
 
         // Recipe Detail Modal (vackert receptkort)
-        function RecipeDetailModal({ recipe, onClose, onDelete, onEdit }) {
+        function RecipeDetailModal({ recipe, tags, onClose, onDelete, onEdit }) {
             const [ingredients, setIngredients] = useState([]);
             const [servings, setServings] = useState(recipe.servings);
             const [loading, setLoading] = useState(true);
@@ -1541,6 +1642,19 @@
                                     </p>
                                 )}
 
+                                {tags && tags.length > 0 && (
+                                    <div style={{display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '2rem', flexWrap: 'wrap'}}>
+                                        {tags.map(tag => (
+                                            <span key={tag} className="recipe-tag" style={{fontSize: '1rem', padding: '0.5rem 1rem'}}>
+                                                {tag === 'matlåda' && '🥡'} 
+                                                {tag === 'snabb' && '⚡'} 
+                                                {tag === 'vegetarisk' && '🥬'} 
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
                                 <div className="recipe-detail-meta">
                                     <div>
                                         <label style={{marginRight: '0.5rem'}}>Portioner:</label>
@@ -1612,26 +1726,45 @@
             const [instructions, setInstructions] = useState(recipe.instructions || '');
             const [notes, setNotes] = useState(recipe.notes || '');
             const [ingredients, setIngredients] = useState([]);
+            const [tags, setTags] = useState([]);
             const [loading, setLoading] = useState(true);
             const [saving, setSaving] = useState(false);
 
+            const availableTags = ['matlåda', 'snabb', 'vegetarisk'];
+
             useEffect(() => {
-                loadIngredients();
+                loadData();
             }, []);
 
-            const loadIngredients = async () => {
+            const loadData = async () => {
                 try {
-                    const { data } = await supabase
+                    // Load ingredients
+                    const { data: ingredientsData } = await supabase
                         .from('ingredients')
                         .select('*')
                         .eq('recipe_id', recipe.id)
                         .order('sort_order');
 
-                    setIngredients(data || []);
+                    // Load tags
+                    const { data: tagsData } = await supabase
+                        .from('recipe_tags')
+                        .select('tag')
+                        .eq('recipe_id', recipe.id);
+
+                    setIngredients(ingredientsData || []);
+                    setTags(tagsData?.map(t => t.tag) || []);
                     setLoading(false);
                 } catch (err) {
-                    console.error('Error loading ingredients:', err);
+                    console.error('Error loading data:', err);
                     setLoading(false);
+                }
+            };
+
+            const toggleTag = (tag) => {
+                if (tags.includes(tag)) {
+                    setTags(tags.filter(t => t !== tag));
+                } else {
+                    setTags([...tags, tag]);
                 }
             };
 
@@ -1674,6 +1807,16 @@
                             notes
                         })
                         .eq('id', recipe.id);
+
+                    // Update tags
+                    await supabase.from('recipe_tags').delete().eq('recipe_id', recipe.id);
+                    if (tags.length > 0) {
+                        const tagData = tags.map(tag => ({
+                            recipe_id: recipe.id,
+                            tag: tag
+                        }));
+                        await supabase.from('recipe_tags').insert(tagData);
+                    }
 
                     // Delete old ingredients
                     await supabase
@@ -1745,6 +1888,23 @@
                                         onChange={(e) => setDescription(e.target.value)}
                                         rows="3"
                                     />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Taggar</label>
+                                    <div style={{display: 'flex', gap: '0.5rem', flexWrap: 'wrap'}}>
+                                        {availableTags.map(tag => (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                className={`recipe-tag ${tags.includes(tag) ? 'btn-primary' : 'btn-secondary'}`}
+                                                style={{cursor: 'pointer', border: tags.includes(tag) ? 'none' : '1px solid var(--border)', background: tags.includes(tag) ? 'var(--accent)' : 'var(--bg-secondary)', color: tags.includes(tag) ? 'white' : 'var(--text-secondary)'}}
+                                                onClick={() => toggleTag(tag)}
+                                            >
+                                                {tag === 'matlåda' && '🥡'} {tag === 'snabb' && '⚡'} {tag === 'vegetarisk' && '🥬'} {tag}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className="form-group">
