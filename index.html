@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Middagsplanerare</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&family=Work+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Mjuka, varma färger - minimalistisk palett */
+            --bg-primary: #FDFCF9;
+            --bg-secondary: #F7F5F2;
+            --bg-card: #FFFFFF;
+            --text-primary: #2B2B2B;
+            --text-secondary: #6B6B6B;
+            --text-muted: #9B9B9B;
+            --accent: #D4A574;
+            --accent-light: #E8C9A8;
+            --accent-dark: #B8915E;
+            --border: #E8E6E3;
+            --success: #7BA05B;
+            --error: #C66B6B;
+            --shadow: rgba(0, 0, 0, 0.04);
+        }
+
+        body {
+            font-family: 'Work Sans', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Crimson Pro', serif;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+        }
+
+        .app-container {
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2rem;
+            font-weight: 300;
+            color: var(--text-primary);
+            letter-spacing: 0.02em;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .user-name {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            background: none;
+            font-family: 'Work Sans', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+            letter-spacing: 0.02em;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-dark);
+        }
+
+        .btn-secondary {
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+        }
+
+        .btn-ghost {
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+            color: var(--text-primary);
+        }
+
+        .btn-small {
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+        }
+
+        /* Navigation */
+        .nav-container {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-tabs {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0;
+            padding: 0 3rem;
+        }
+
+        .nav-tab {
+            padding: 1.5rem 2rem;
+            background: none;
+            border: none;
+            font-family: 'Work Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 300;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            letter-spacing: 0.02em;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-tab.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent);
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 3rem;
+        }
+
+        /* Login */
+        .login-container {
+            max-width: 420px;
+            margin: 8rem auto;
+            background: var(--bg-card);
+            padding: 4rem;
+            border-radius: 2px;
+            box-shadow: 0 2px 20px var(--shadow);
+        }
+
+        .login-title {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 3rem;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 300;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            font-family: 'Work Sans', sans-serif;
+            font-size: 1rem;
+            background: var(--bg-primary);
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 2px;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 20px var(--shadow);
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+
+        /* Week View */
+        .week-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .week-title {
+            font-size: 2rem;
+            font-weight: 300;
+        }
+
+        .week-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1.5rem;
+        }
+
+        .day-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 1.5rem;
+            min-height: 200px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .day-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .day-name {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .day-recipe {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: var(--text-primary);
+        }
+
+        .day-empty {
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        .day-image {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 2px;
+            margin-bottom: 1rem;
+        }
+
+        /* Recipe Grid */
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .recipe-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .recipe-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px var(--shadow);
+        }
+
+        .recipe-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .recipe-content {
+            padding: 1.5rem;
+        }
+
+        .recipe-name {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+        }
+
+        .recipe-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .recipe-tag {
+            padding: 0.25rem 0.75rem;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            border-radius: 2px;
+            letter-spacing: 0.02em;
+        }
+
+        .recipe-favorite {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .recipe-favorite:hover {
+            transform: scale(1.1);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: 2px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal-header {
+            padding: 2.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'Crimson Pro', serif;
+            font-size: 2rem;
+            font-weight: 300;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 2.5rem;
+        }
+
+        /* Recipe Detail Card (vackert receptkort) */
+        .recipe-detail {
+            font-family: 'Crimson Pro', serif;
+        }
+
+        .recipe-detail-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .recipe-detail-title {
+            font-size: 2.5rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+        }
+
+        .recipe-detail-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 2px;
+            margin-bottom: 2rem;
+        }
+
+        .recipe-detail-meta {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 3rem;
+            font-family: 'Work Sans', sans-serif;
+            color: var(--text-secondary);
+        }
+
+        .recipe-detail-section {
+            margin-bottom: 3rem;
+        }
+
+        .recipe-detail-section-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--accent-dark);
+        }
+
+        .ingredient-list {
+            list-style: none;
+            font-family: 'Work Sans', sans-serif;
+        }
+
+        .ingredient-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .ingredient-item:last-child {
+            border-bottom: none;
+        }
+
+        .instruction-list {
+            counter-reset: instruction-counter;
+            list-style: none;
+            font-family: 'Work Sans', sans-serif;
+        }
+
+        .instruction-item {
+            counter-increment: instruction-counter;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            padding-left: 3rem;
+        }
+
+        .instruction-item:last-child {
+            border-bottom: none;
+        }
+
+        .instruction-item::before {
+            content: counter(instruction-counter);
+            position: absolute;
+            left: 0;
+            top: 1.5rem;
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+
+        /* Shopping List */
+        .shopping-category {
+            margin-bottom: 2.5rem;
+        }
+
+        .shopping-category-title {
+            font-family: 'Crimson Pro', serif;
+            font-size: 1.3rem;
+            font-weight: 400;
+            margin-bottom: 1rem;
+            color: var(--accent-dark);
+        }
+
+        .shopping-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .shopping-item:hover {
+            background: var(--bg-secondary);
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        .shopping-item.checked {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .shopping-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .shopping-checkbox.checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .shopping-checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.8rem;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 5rem;
+        }
+
+        .spinner {
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Alert */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 2px;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .alert-error {
+            background: #FFF5F5;
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        .alert-success {
+            background: #F5FFF5;
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .week-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-tabs {
+                padding: 0 1.5rem;
+                overflow-x: auto;
+            }
+
+            .main-content {
+                padding: 1.5rem;
+            }
+
+            .week-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .recipe-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Utility classes */
+        .text-center {
+            text-align: center;
+        }
+
+        .mb-1 { margin-bottom: 0.5rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .mb-3 { margin-bottom: 1.5rem; }
+        .mb-4 { margin-bottom: 2rem; }
+
+        .mt-1 { margin-top: 0.5rem; }
+        .mt-2 { margin-top: 1rem; }
+        .mt-3 { margin-top: 1.5rem; }
+        .mt-4 { margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Supabase konfiguration
+        const SUPABASE_URL = 'https://sxgrwpqdocluntpuotib.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4Z3J3cHFkb2NsdW50cHVvdGliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTA5NDksImV4cCI6MjA4NjY2Njk0OX0.r9GqncCA9iH8iqhzV4YB8b-WYMd-mf2z_e8aZ8e951k';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Hjälpfunktioner
+        const getMonday = (date = new Date()) => {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff));
+        };
+
+        const formatDate = (date) => {
+            return date.toISOString().split('T')[0];
+        };
+
+        const getCurrentWeekStart = () => {
+            return formatDate(getMonday());
+        };
+
+        const DAYS = [
+            { id: 1, name: 'Måndag' },
+            { id: 2, name: 'Tisdag' },
+            { id: 3, name: 'Onsdag' },
+            { id: 4, name: 'Torsdag' },
+            { id: 5, name: 'Fredag' },
+            { id: 6, name: 'Lördag' },
+            { id: 7, name: 'Söndag' }
+        ];
+
+        const CATEGORIES = ['mejeri', 'kött', 'grönt', 'torrt', 'fryst', 'övrigt'];
+
+        function App() {
+            const [currentUser, setCurrentUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('week');
+            const [loading, setLoading] = useState(false);
+
+            // Login komponent
+            if (!currentUser) {
+                return <LoginForm onLogin={setCurrentUser} />;
+            }
+
+            return (
+                <div className="app-container">
+                    <Header user={currentUser} onLogout={() => setCurrentUser(null)} />
+                    
+                    <nav className="nav-container">
+                        <div className="nav-tabs">
+                            <button 
+                                className={`nav-tab ${activeTab === 'week' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('week')}
+                            >
+                                Veckomeny
+                            </button>
+                            <button 
+                                className={`nav-tab ${activeTab === 'recipes' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('recipes')}
+                            >
+                                Alla Recept
+                            </button>
+                            <button 
+                                className={`nav-tab ${activeTab === 'shopping' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('shopping')}
+                            >
+                                Inköpslista
+                            </button>
+                            {currentUser.is_admin && (
+                                <button 
+                                    className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
+                                    onClick={() => setActiveTab('settings')}
+                                >
+                                    Inställningar
+                                </button>
+                            )}
+                        </div>
+                    </nav>
+
+                    <main className="main-content">
+                        {activeTab === 'week' && <WeekView />}
+                        {activeTab === 'recipes' && <RecipesView />}
+                        {activeTab === 'shopping' && <ShoppingListView />}
+                        {activeTab === 'settings' && currentUser.is_admin && <SettingsView />}
+                    </main>
+                </div>
+            );
+        }
+
+        // Login Component
+        function LoginForm({ onLogin }) {
+            const [username, setUsername] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                try {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('username', username)
+                        .eq('password', password)
+                        .single();
+
+                    if (error || !data) {
+                        setError('Fel användarnamn eller lösenord');
+                    } else {
+                        onLogin(data);
+                    }
+                } catch (err) {
+                    setError('Fel vid inloggning');
+                }
+                
+                setLoading(false);
+            };
+
+            return (
+                <div className="login-container">
+                    <h1 className="login-title">Middagsplanerare</h1>
+                    {error && <div className="alert alert-error">{error}</div>}
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label className="form-label">Användarnamn</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Lösenord</label>
+                            <input
+                                type="password"
+                                className="form-input"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                disabled={loading}
+                            />
+                        </div>
+                        <button type="submit" className="btn btn-primary" style={{width: '100%'}} disabled={loading}>
+                            {loading ? 'Loggar in...' : 'Logga in'}
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        // Header Component
+        function Header({ user, onLogout }) {
+            return (
+                <header className="header">
+                    <div className="logo">
+                        Middagsplanerare
+                    </div>
+                    <div className="user-info">
+                        <span className="user-name">{user.name}</span>
+                        <button className="btn btn-ghost btn-small" onClick={onLogout}>
+                            Logga ut
+                        </button>
+                    </div>
+                </header>
+            );
+        }
+
+        // Week View Component
+        function WeekView() {
+            const [mealPlan, setMealPlan] = useState([]);
+            const [recipes, setRecipes] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [selectedDay, setSelectedDay] = useState(null);
+            const [showRecipeSelector, setShowRecipeSelector] = useState(false);
+            const weekStart = getCurrentWeekStart();
+
+            useEffect(() => {
+                loadData();
+            }, []);
+
+            const loadData = async () => {
+                try {
+                    // Load meal plan for current week
+                    const { data: planData } = await supabase
+                        .from('meal_plan')
+                        .select(`
+                            *,
+                            recipes (
+                                id,
+                                name,
+                                image_url,
+                                servings
+                            )
+                        `)
+                        .eq('week_start', weekStart);
+
+                    // Load all recipes
+                    const { data: recipesData } = await supabase
+                        .from('recipes')
+                        .select('*')
+                        .order('name');
+
+                    setMealPlan(planData || []);
+                    setRecipes(recipesData || []);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error loading data:', err);
+                    setLoading(false);
+                }
+            };
+
+            const handleDayClick = (dayId) => {
+                setSelectedDay(dayId);
+                setShowRecipeSelector(true);
+            };
+
+            const handleSelectRecipe = async (recipeId) => {
+                try {
+                    // Check if day already has a recipe
+                    const existing = mealPlan.find(p => p.day_of_week === selectedDay);
+                    
+                    if (existing) {
+                        // Update existing
+                        await supabase
+                            .from('meal_plan')
+                            .update({ recipe_id: recipeId })
+                            .eq('id', existing.id);
+                    } else {
+                        // Insert new
+                        await supabase
+                            .from('meal_plan')
+                            .insert([{
+                                recipe_id: recipeId,
+                                day_of_week: selectedDay,
+                                week_start: weekStart
+                            }]);
+                    }
+
+                    setShowRecipeSelector(false);
+                    loadData();
+                } catch (err) {
+                    console.error('Error saving meal plan:', err);
+                }
+            };
+
+            const handleRandomRecipe = async (dayId) => {
+                if (recipes.length === 0) return;
+                const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)];
+                setSelectedDay(dayId);
+                await handleSelectRecipe(randomRecipe.id);
+            };
+
+            const handleRemoveRecipe = async (dayId) => {
+                try {
+                    const existing = mealPlan.find(p => p.day_of_week === dayId);
+                    if (existing) {
+                        await supabase
+                            .from('meal_plan')
+                            .delete()
+                            .eq('id', existing.id);
+                        loadData();
+                    }
+                } catch (err) {
+                    console.error('Error removing recipe:', err);
+                }
+            };
+
+            if (loading) {
+                return <div className="loading"><div className="spinner"></div><p>Laddar veckoplanering...</p></div>;
+            }
+
+            return (
+                <div>
+                    <div className="week-header">
+                        <h1 className="week-title">Veckomeny</h1>
+                    </div>
+
+                    <div className="week-grid">
+                        {DAYS.map(day => {
+                            const meal = mealPlan.find(p => p.day_of_week === day.id);
+                            const recipe = meal?.recipes;
+
+                            return (
+                                <div key={day.id} className="day-card">
+                                    <div className="day-name">{day.name}</div>
+                                    
+                                    {recipe ? (
+                                        <>
+                                            {recipe.image_url && (
+                                                <img src={recipe.image_url} alt={recipe.name} className="day-image" />
+                                            )}
+                                            <div className="day-recipe">{recipe.name}</div>
+                                            <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem'}}>
+                                                <button 
+                                                    className="btn btn-ghost btn-small"
+                                                    onClick={() => handleDayClick(day.id)}
+                                                >
+                                                    Byt
+                                                </button>
+                                                <button 
+                                                    className="btn btn-ghost btn-small"
+                                                    onClick={() => handleRemoveRecipe(day.id)}
+                                                >
+                                                    Ta bort
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="day-empty">Ingen middag planerad</div>
+                                            <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem'}}>
+                                                <button 
+                                                    className="btn btn-secondary btn-small"
+                                                    onClick={() => handleDayClick(day.id)}
+                                                >
+                                                    Välj recept
+                                                </button>
+                                                <button 
+                                                    className="btn btn-ghost btn-small"
+                                                    onClick={() => handleRandomRecipe(day.id)}
+                                                >
+                                                    🎲 Slumpa
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {showRecipeSelector && (
+                        <RecipeSelectorModal
+                            recipes={recipes}
+                            onSelect={handleSelectRecipe}
+                            onClose={() => setShowRecipeSelector(false)}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Recipe Selector Modal
+        function RecipeSelectorModal({ recipes, onSelect, onClose }) {
+            const [search, setSearch] = useState('');
+            const [filter, setFilter] = useState('all');
+
+            const filteredRecipes = recipes.filter(recipe => {
+                const matchesSearch = recipe.name.toLowerCase().includes(search.toLowerCase());
+                // Filter logic will be added when tags are loaded
+                return matchesSearch;
+            });
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Välj recept</h2>
+                            <button className="modal-close" onClick={onClose}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="form-group">
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Sök recept..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="recipe-grid">
+                                {filteredRecipes.map(recipe => (
+                                    <div 
+                                        key={recipe.id} 
+                                        className="recipe-card"
+                                        onClick={() => onSelect(recipe.id)}
+                                    >
+                                        {recipe.image_url && (
+                                            <img src={recipe.image_url} alt={recipe.name} className="recipe-image" />
+                                        )}
+                                        <div className="recipe-content">
+                                            <h3 className="recipe-name">{recipe.name}</h3>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {filteredRecipes.length === 0 && (
+                                <p className="text-center" style={{color: 'var(--text-muted)', padding: '3rem'}}>
+                                    Inga recept hittades
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Recipes View Component
+        function RecipesView() {
+            const [recipes, setRecipes] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [showAddRecipe, setShowAddRecipe] = useState(false);
+            const [selectedRecipe, setSelectedRecipe] = useState(null);
+            const [filter, setFilter] = useState('all');
+
+            useEffect(() => {
+                loadRecipes();
+            }, []);
+
+            const loadRecipes = async () => {
+                try {
+                    const { data } = await supabase
+                        .from('recipes')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+
+                    setRecipes(data || []);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error loading recipes:', err);
+                    setLoading(false);
+                }
+            };
+
+            const handleToggleFavorite = async (recipeId, currentStatus) => {
+                try {
+                    await supabase
+                        .from('recipes')
+                        .update({ is_favorite: !currentStatus })
+                        .eq('id', recipeId);
+                    loadRecipes();
+                } catch (err) {
+                    console.error('Error toggling favorite:', err);
+                }
+            };
+
+            const handleDeleteRecipe = async (recipeId) => {
+                if (!confirm('Är du säker på att du vill ta bort detta recept?')) return;
+                
+                try {
+                    await supabase
+                        .from('recipes')
+                        .delete()
+                        .eq('id', recipeId);
+                    loadRecipes();
+                    setSelectedRecipe(null);
+                } catch (err) {
+                    console.error('Error deleting recipe:', err);
+                }
+            };
+
+            const filteredRecipes = recipes.filter(recipe => {
+                if (filter === 'favorites') return recipe.is_favorite;
+                return true;
+            });
+
+            if (loading) {
+                return <div className="loading"><div className="spinner"></div><p>Laddar recept...</p></div>;
+            }
+
+            return (
+                <div>
+                    <div className="week-header">
+                        <h1 className="week-title">Alla Recept</h1>
+                        <div style={{display: 'flex', gap: '1rem'}}>
+                            <button 
+                                className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                                onClick={() => setFilter('all')}
+                            >
+                                Alla
+                            </button>
+                            <button 
+                                className={`btn ${filter === 'favorites' ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                                onClick={() => setFilter('favorites')}
+                            >
+                                ⭐ Favoriter
+                            </button>
+                            <button 
+                                className="btn btn-primary"
+                                onClick={() => setShowAddRecipe(true)}
+                            >
+                                + Lägg till recept
+                            </button>
+                        </div>
+                    </div>
+
+                    {filteredRecipes.length === 0 ? (
+                        <div className="card text-center" style={{padding: '4rem'}}>
+                            <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>
+                                {filter === 'favorites' ? 'Inga favoriter än' : 'Inga recept än. Skapa ditt första recept!'}
+                            </p>
+                            {filter === 'all' && (
+                                <button className="btn btn-primary" onClick={() => setShowAddRecipe(true)}>
+                                    + Skapa recept
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="recipe-grid">
+                            {filteredRecipes.map(recipe => (
+                                <div 
+                                    key={recipe.id} 
+                                    className="recipe-card"
+                                    onClick={() => setSelectedRecipe(recipe)}
+                                >
+                                    <button
+                                        className="recipe-favorite"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleFavorite(recipe.id, recipe.is_favorite);
+                                        }}
+                                    >
+                                        {recipe.is_favorite ? '⭐' : '☆'}
+                                    </button>
+                                    {recipe.image_url && (
+                                        <img src={recipe.image_url} alt={recipe.name} className="recipe-image" />
+                                    )}
+                                    <div className="recipe-content">
+                                        <h3 className="recipe-name">{recipe.name}</h3>
+                                        {recipe.description && (
+                                            <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.5rem'}}>
+                                                {recipe.description.substring(0, 100)}...
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {showAddRecipe && (
+                        <AddRecipeModal
+                            onClose={() => setShowAddRecipe(false)}
+                            onSave={() => {
+                                setShowAddRecipe(false);
+                                loadRecipes();
+                            }}
+                        />
+                    )}
+
+                    {selectedRecipe && (
+                        <RecipeDetailModal
+                            recipe={selectedRecipe}
+                            onClose={() => setSelectedRecipe(null)}
+                            onDelete={handleDeleteRecipe}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Add Recipe Modal (simplified for now)
+        function AddRecipeModal({ onClose, onSave }) {
+            const [name, setName] = useState('');
+            const [description, setDescription] = useState('');
+            const [imageUrl, setImageUrl] = useState('');
+            const [externalLink, setExternalLink] = useState('');
+            const [servings, setServings] = useState(4);
+            const [instructions, setInstructions] = useState('');
+            const [ingredients, setIngredients] = useState('');
+            const [notes, setNotes] = useState('');
+            const [saving, setSaving] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setSaving(true);
+
+                try {
+                    // Save recipe
+                    const { data: recipeData, error: recipeError } = await supabase
+                        .from('recipes')
+                        .insert([{
+                            name,
+                            description,
+                            image_url: imageUrl,
+                            external_link: externalLink,
+                            servings,
+                            instructions,
+                            notes
+                        }])
+                        .select()
+                        .single();
+
+                    if (recipeError) throw recipeError;
+
+                    // Save ingredients (simple version - one per line)
+                    if (ingredients.trim()) {
+                        const ingredientLines = ingredients.split('\n').filter(l => l.trim());
+                        const ingredientData = ingredientLines.map((line, idx) => {
+                            // Try to parse "amount name" format
+                            const parts = line.trim().split(' ');
+                            const amount = parts[0];
+                            const name = parts.slice(1).join(' ');
+                            
+                            return {
+                                recipe_id: recipeData.id,
+                                name: name || line,
+                                amount: amount || '',
+                                category: 'övrigt',
+                                sort_order: idx
+                            };
+                        });
+
+                        await supabase
+                            .from('ingredients')
+                            .insert(ingredientData);
+                    }
+
+                    onSave();
+                } catch (err) {
+                    console.error('Error saving recipe:', err);
+                    alert('Kunde inte spara recept: ' + err.message);
+                }
+
+                setSaving(false);
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '700px'}}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Lägg till recept</h2>
+                            <button className="modal-close" onClick={onClose}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <form onSubmit={handleSubmit}>
+                                <div className="form-group">
+                                    <label className="form-label">Receptnamn *</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Beskrivning</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        rows="3"
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Bild-URL *</label>
+                                    <input
+                                        type="url"
+                                        className="form-input"
+                                        value={imageUrl}
+                                        onChange={(e) => setImageUrl(e.target.value)}
+                                        placeholder="https://..."
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Länk till original recept</label>
+                                    <input
+                                        type="url"
+                                        className="form-input"
+                                        value={externalLink}
+                                        onChange={(e) => setExternalLink(e.target.value)}
+                                        placeholder="https://..."
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Antal portioner</label>
+                                    <select
+                                        className="form-input"
+                                        value={servings}
+                                        onChange={(e) => setServings(parseInt(e.target.value))}
+                                    >
+                                        <option value="2">2 portioner</option>
+                                        <option value="4">4 portioner</option>
+                                        <option value="6">6 portioner</option>
+                                        <option value="8">8 portioner</option>
+                                        <option value="10">10 portioner</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Ingredienser (en per rad, t.ex "2 dl mjölk") *</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={ingredients}
+                                        onChange={(e) => setIngredients(e.target.value)}
+                                        rows="8"
+                                        placeholder="2 dl mjölk&#10;3 ägg&#10;100 g smör"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Instruktioner</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={instructions}
+                                        onChange={(e) => setInstructions(e.target.value)}
+                                        rows="8"
+                                        placeholder="Beskriv steg för steg..."
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Anteckningar</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        rows="3"
+                                        placeholder="Personliga tips, ändringar, etc..."
+                                    />
+                                </div>
+
+                                <div style={{display: 'flex', gap: '1rem', justifyContent: 'flex-end'}}>
+                                    <button type="button" className="btn btn-secondary" onClick={onClose}>
+                                        Avbryt
+                                    </button>
+                                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                                        {saving ? 'Sparar...' : 'Spara recept'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Recipe Detail Modal (vackert receptkort)
+        function RecipeDetailModal({ recipe, onClose, onDelete }) {
+            const [ingredients, setIngredients] = useState([]);
+            const [servings, setServings] = useState(recipe.servings);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                loadIngredients();
+            }, []);
+
+            const loadIngredients = async () => {
+                try {
+                    const { data } = await supabase
+                        .from('ingredients')
+                        .select('*')
+                        .eq('recipe_id', recipe.id)
+                        .order('sort_order');
+
+                    setIngredients(data || []);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error loading ingredients:', err);
+                    setLoading(false);
+                }
+            };
+
+            const scaleAmount = (amount, originalServings, newServings) => {
+                // Try to parse and scale numeric amounts
+                const match = amount.match(/^([\d.,]+)\s*(.*)$/);
+                if (match) {
+                    const number = parseFloat(match[1].replace(',', '.'));
+                    const unit = match[2];
+                    const scaled = (number * newServings) / originalServings;
+                    return `${scaled.toFixed(1).replace('.0', '')} ${unit}`;
+                }
+                return amount;
+            };
+
+            const instructionSteps = recipe.instructions ? recipe.instructions.split('\n').filter(s => s.trim()) : [];
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">{recipe.name}</h2>
+                            <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                                {recipe.external_link && (
+                                    <a 
+                                        href={recipe.external_link} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="btn btn-ghost btn-small"
+                                    >
+                                        🔗 Original
+                                    </a>
+                                )}
+                                <button 
+                                    className="btn btn-ghost btn-small"
+                                    onClick={() => onDelete(recipe.id)}
+                                >
+                                    🗑️ Ta bort
+                                </button>
+                                <button className="modal-close" onClick={onClose}>×</button>
+                            </div>
+                        </div>
+                        <div className="modal-body">
+                            <div className="recipe-detail">
+                                {recipe.image_url && (
+                                    <img 
+                                        src={recipe.image_url} 
+                                        alt={recipe.name} 
+                                        className="recipe-detail-image" 
+                                    />
+                                )}
+
+                                {recipe.description && (
+                                    <p style={{textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '2rem'}}>
+                                        {recipe.description}
+                                    </p>
+                                )}
+
+                                <div className="recipe-detail-meta">
+                                    <div>
+                                        <label style={{marginRight: '0.5rem'}}>Portioner:</label>
+                                        <select
+                                            value={servings}
+                                            onChange={(e) => setServings(parseInt(e.target.value))}
+                                            style={{padding: '0.25rem 0.5rem', border: '1px solid var(--border)', borderRadius: '2px'}}
+                                        >
+                                            <option value="2">2</option>
+                                            <option value="4">4</option>
+                                            <option value="6">6</option>
+                                            <option value="8">8</option>
+                                            <option value="10">10</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {loading ? (
+                                    <div className="loading"><div className="spinner"></div></div>
+                                ) : (
+                                    <>
+                                        {ingredients.length > 0 && (
+                                            <div className="recipe-detail-section">
+                                                <h3 className="recipe-detail-section-title">Ingredienser</h3>
+                                                <ul className="ingredient-list">
+                                                    {ingredients.map(ing => (
+                                                        <li key={ing.id} className="ingredient-item">
+                                                            <span>{ing.name}</span>
+                                                            <span>{scaleAmount(ing.amount, recipe.servings, servings)}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {instructionSteps.length > 0 && (
+                                            <div className="recipe-detail-section">
+                                                <h3 className="recipe-detail-section-title">Instruktioner</h3>
+                                                <ol className="instruction-list">
+                                                    {instructionSteps.map((step, idx) => (
+                                                        <li key={idx} className="instruction-item">{step}</li>
+                                                    ))}
+                                                </ol>
+                                            </div>
+                                        )}
+
+                                        {recipe.notes && (
+                                            <div className="recipe-detail-section">
+                                                <h3 className="recipe-detail-section-title">Anteckningar</h3>
+                                                <p style={{whiteSpace: 'pre-wrap'}}>{recipe.notes}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Shopping List View
+        function ShoppingListView() {
+            const [shoppingList, setShoppingList] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [generating, setGenerating] = useState(false);
+            const weekStart = getCurrentWeekStart();
+
+            useEffect(() => {
+                loadShoppingList();
+            }, []);
+
+            const loadShoppingList = async () => {
+                setLoading(true);
+                try {
+                    const { data } = await supabase
+                        .from('shopping_list')
+                        .select('*')
+                        .eq('week_start', weekStart)
+                        .order('category');
+
+                    setShoppingList(data || []);
+                } catch (err) {
+                    console.error('Error loading shopping list:', err);
+                }
+                setLoading(false);
+            };
+
+            const generateList = async () => {
+                setGenerating(true);
+                try {
+                    // Get meal plan for current week
+                    const { data: mealPlan } = await supabase
+                        .from('meal_plan')
+                        .select('recipe_id')
+                        .eq('week_start', weekStart);
+
+                    if (!mealPlan || mealPlan.length === 0) {
+                        alert('Lägg till recept i veckomenyn först!');
+                        setGenerating(false);
+                        return;
+                    }
+
+                    const recipeIds = mealPlan.map(m => m.recipe_id);
+
+                    // Get all ingredients for these recipes
+                    const { data: ingredients } = await supabase
+                        .from('ingredients')
+                        .select('*')
+                        .in('recipe_id', recipeIds);
+
+                    // Clear existing shopping list
+                    await supabase
+                        .from('shopping_list')
+                        .delete()
+                        .eq('week_start', weekStart);
+
+                    // Group and combine similar ingredients
+                    const grouped = {};
+                    ingredients.forEach(ing => {
+                        const key = ing.name.toLowerCase();
+                        if (!grouped[key]) {
+                            grouped[key] = {
+                                ingredient_name: ing.name,
+                                amount: ing.amount,
+                                category: ing.category,
+                                is_checked: false,
+                                week_start: weekStart
+                            };
+                        } else {
+                            grouped[key].amount += ', ' + ing.amount;
+                        }
+                    });
+
+                    // Insert into shopping list
+                    const listItems = Object.values(grouped);
+                    if (listItems.length > 0) {
+                        await supabase
+                            .from('shopping_list')
+                            .insert(listItems);
+                    }
+
+                    loadShoppingList();
+                } catch (err) {
+                    console.error('Error generating shopping list:', err);
+                    alert('Kunde inte generera inköpslista');
+                }
+                setGenerating(false);
+            };
+
+            const toggleCheck = async (item) => {
+                try {
+                    await supabase
+                        .from('shopping_list')
+                        .update({ is_checked: !item.is_checked })
+                        .eq('id', item.id);
+
+                    loadShoppingList();
+                } catch (err) {
+                    console.error('Error toggling item:', err);
+                }
+            };
+
+            const copyList = () => {
+                const text = shoppingList
+                    .map(item => `${item.is_checked ? '✓' : '○'} ${item.ingredient_name} - ${item.amount}`)
+                    .join('\n');
+                
+                navigator.clipboard.writeText(text);
+                alert('Inköpslista kopierad!');
+            };
+
+            const groupedByCategory = CATEGORIES.reduce((acc, cat) => {
+                acc[cat] = shoppingList.filter(item => item.category === cat);
+                return acc;
+            }, {});
+
+            if (loading) {
+                return <div className="loading"><div className="spinner"></div><p>Laddar inköpslista...</p></div>;
+            }
+
+            return (
+                <div>
+                    <div className="week-header">
+                        <h1 className="week-title">Inköpslista</h1>
+                        <div style={{display: 'flex', gap: '1rem'}}>
+                            {shoppingList.length > 0 && (
+                                <button className="btn btn-secondary" onClick={copyList}>
+                                    📋 Kopiera lista
+                                </button>
+                            )}
+                            <button 
+                                className="btn btn-primary" 
+                                onClick={generateList}
+                                disabled={generating}
+                            >
+                                {generating ? 'Genererar...' : '✨ Generera från veckan'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {shoppingList.length === 0 ? (
+                        <div className="card text-center" style={{padding: '4rem'}}>
+                            <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>
+                                Ingen inköpslista genererad än
+                            </p>
+                            <button className="btn btn-primary" onClick={generateList}>
+                                Generera från veckomeny
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="card" style={{padding: '2rem'}}>
+                            {CATEGORIES.map(category => {
+                                const items = groupedByCategory[category];
+                                if (!items || items.length === 0) return null;
+
+                                return (
+                                    <div key={category} className="shopping-category">
+                                        <h3 className="shopping-category-title">
+                                            {category.charAt(0).toUpperCase() + category.slice(1)}
+                                        </h3>
+                                        {items.map(item => (
+                                            <div 
+                                                key={item.id} 
+                                                className={`shopping-item ${item.is_checked ? 'checked' : ''}`}
+                                                onClick={() => toggleCheck(item)}
+                                            >
+                                                <div className={`shopping-checkbox ${item.is_checked ? 'checked' : ''}`} />
+                                                <div style={{flex: 1}}>
+                                                    <span style={{fontWeight: 500}}>{item.ingredient_name}</span>
+                                                    <span style={{marginLeft: '1rem', color: 'var(--text-secondary)'}}>
+                                                        {item.amount}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Settings View (simplified)
+        function SettingsView() {
+            return (
+                <div>
+                    <div className="week-header">
+                        <h1 className="week-title">Inställningar</h1>
+                    </div>
+                    <div className="card" style={{padding: '2rem'}}>
+                        <h3 style={{marginBottom: '1rem'}}>Allergier & Preferenser</h3>
+                        <p style={{color: 'var(--text-muted)'}}>
+                            Kommer snart...
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
