@@ -1105,6 +1105,7 @@
             const [recipes, setRecipes] = useState([]);
             const [loading, setLoading] = useState(true);
             const [showAddRecipe, setShowAddRecipe] = useState(false);
+            const [editingRecipe, setEditingRecipe] = useState(null);
             const [selectedRecipe, setSelectedRecipe] = useState(null);
             const [filter, setFilter] = useState('all');
 
@@ -1243,11 +1244,27 @@
                         />
                     )}
 
+                    {editingRecipe && (
+                        <EditRecipeModal
+                            recipe={editingRecipe}
+                            onClose={() => setEditingRecipe(null)}
+                            onSave={() => {
+                                setEditingRecipe(null);
+                                loadRecipes();
+                                setSelectedRecipe(null);
+                            }}
+                        />
+                    )}
+
                     {selectedRecipe && (
                         <RecipeDetailModal
                             recipe={selectedRecipe}
                             onClose={() => setSelectedRecipe(null)}
                             onDelete={handleDeleteRecipe}
+                            onEdit={(recipe) => {
+                                setSelectedRecipe(null);
+                                setEditingRecipe(recipe);
+                            }}
                         />
                     )}
                 </div>
@@ -1438,7 +1455,7 @@
         }
 
         // Recipe Detail Modal (vackert receptkort)
-        function RecipeDetailModal({ recipe, onClose, onDelete }) {
+        function RecipeDetailModal({ recipe, onClose, onDelete, onEdit }) {
             const [ingredients, setIngredients] = useState([]);
             const [servings, setServings] = useState(recipe.servings);
             const [loading, setLoading] = useState(true);
@@ -1483,6 +1500,12 @@
                         <div className="modal-header">
                             <h2 className="modal-title">{recipe.name}</h2>
                             <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                                <button 
+                                    className="btn btn-secondary btn-small"
+                                    onClick={() => onEdit(recipe)}
+                                >
+                                    ✏️ Redigera
+                                </button>
                                 {recipe.external_link && (
                                     <a 
                                         href={recipe.external_link} 
@@ -1573,6 +1596,275 @@
                                     </>
                                 )}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Edit Recipe Modal
+        function EditRecipeModal({ recipe, onClose, onSave }) {
+            const [name, setName] = useState(recipe.name);
+            const [description, setDescription] = useState(recipe.description || '');
+            const [imageUrl, setImageUrl] = useState(recipe.image_url);
+            const [externalLink, setExternalLink] = useState(recipe.external_link || '');
+            const [servings, setServings] = useState(recipe.servings);
+            const [instructions, setInstructions] = useState(recipe.instructions || '');
+            const [notes, setNotes] = useState(recipe.notes || '');
+            const [ingredients, setIngredients] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [saving, setSaving] = useState(false);
+
+            useEffect(() => {
+                loadIngredients();
+            }, []);
+
+            const loadIngredients = async () => {
+                try {
+                    const { data } = await supabase
+                        .from('ingredients')
+                        .select('*')
+                        .eq('recipe_id', recipe.id)
+                        .order('sort_order');
+
+                    setIngredients(data || []);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error loading ingredients:', err);
+                    setLoading(false);
+                }
+            };
+
+            const handleIngredientChange = (index, field, value) => {
+                const updated = [...ingredients];
+                updated[index] = { ...updated[index], [field]: value };
+                setIngredients(updated);
+            };
+
+            const handleAddIngredient = () => {
+                setIngredients([...ingredients, {
+                    recipe_id: recipe.id,
+                    name: '',
+                    amount: '',
+                    category: 'övrigt',
+                    sort_order: ingredients.length
+                }]);
+            };
+
+            const handleRemoveIngredient = (index) => {
+                const updated = ingredients.filter((_, i) => i !== index);
+                setIngredients(updated);
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setSaving(true);
+
+                try {
+                    // Update recipe
+                    await supabase
+                        .from('recipes')
+                        .update({
+                            name,
+                            description,
+                            image_url: imageUrl,
+                            external_link: externalLink,
+                            servings,
+                            instructions,
+                            notes
+                        })
+                        .eq('id', recipe.id);
+
+                    // Delete old ingredients
+                    await supabase
+                        .from('ingredients')
+                        .delete()
+                        .eq('recipe_id', recipe.id);
+
+                    // Insert updated ingredients
+                    const validIngredients = ingredients
+                        .filter(ing => ing.name.trim())
+                        .map((ing, idx) => ({
+                            recipe_id: recipe.id,
+                            name: ing.name,
+                            amount: ing.amount,
+                            category: ing.category || 'övrigt',
+                            sort_order: idx
+                        }));
+
+                    if (validIngredients.length > 0) {
+                        await supabase
+                            .from('ingredients')
+                            .insert(validIngredients);
+                    }
+
+                    onSave();
+                } catch (err) {
+                    console.error('Error updating recipe:', err);
+                    alert('Kunde inte uppdatera recept: ' + err.message);
+                }
+
+                setSaving(false);
+            };
+
+            if (loading) {
+                return (
+                    <div className="modal-overlay" onClick={onClose}>
+                        <div className="modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="loading"><div className="spinner"></div><p>Laddar...</p></div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px'}}>
+                        <div className="modal-header">
+                            <h2 className="modal-title">Redigera recept</h2>
+                            <button className="modal-close" onClick={onClose}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            <form onSubmit={handleSubmit}>
+                                <div className="form-group">
+                                    <label className="form-label">Receptnamn *</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Beskrivning</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        rows="3"
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Bild-URL *</label>
+                                    <input
+                                        type="url"
+                                        className="form-input"
+                                        value={imageUrl}
+                                        onChange={(e) => setImageUrl(e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Länk till original recept</label>
+                                    <input
+                                        type="url"
+                                        className="form-input"
+                                        value={externalLink}
+                                        onChange={(e) => setExternalLink(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Antal portioner</label>
+                                    <select
+                                        className="form-input"
+                                        value={servings}
+                                        onChange={(e) => setServings(parseInt(e.target.value))}
+                                    >
+                                        <option value="2">2 portioner</option>
+                                        <option value="4">4 portioner</option>
+                                        <option value="6">6 portioner</option>
+                                        <option value="8">8 portioner</option>
+                                        <option value="10">10 portioner</option>
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Ingredienser</label>
+                                    <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                                        {ingredients.map((ing, idx) => (
+                                            <div key={idx} style={{display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'center'}}>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    placeholder="Ingrediens"
+                                                    value={ing.name}
+                                                    onChange={(e) => handleIngredientChange(idx, 'name', e.target.value)}
+                                                    style={{marginBottom: 0}}
+                                                />
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    placeholder="Mängd"
+                                                    value={ing.amount}
+                                                    onChange={(e) => handleIngredientChange(idx, 'amount', e.target.value)}
+                                                    style={{marginBottom: 0}}
+                                                />
+                                                <select
+                                                    className="form-input"
+                                                    value={ing.category}
+                                                    onChange={(e) => handleIngredientChange(idx, 'category', e.target.value)}
+                                                    style={{marginBottom: 0}}
+                                                >
+                                                    {CATEGORIES.map(cat => (
+                                                        <option key={cat} value={cat}>{cat}</option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-small"
+                                                    onClick={() => handleRemoveIngredient(idx)}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary btn-small"
+                                            onClick={handleAddIngredient}
+                                            style={{alignSelf: 'flex-start'}}
+                                        >
+                                            + Lägg till ingrediens
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Instruktioner</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={instructions}
+                                        onChange={(e) => setInstructions(e.target.value)}
+                                        rows="8"
+                                        placeholder="Beskriv steg för steg..."
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Anteckningar</label>
+                                    <textarea
+                                        className="form-input form-textarea"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        rows="3"
+                                        placeholder="Personliga tips, ändringar, etc..."
+                                    />
+                                </div>
+
+                                <div style={{display: 'flex', gap: '1rem', justifyContent: 'flex-end'}}>
+                                    <button type="button" className="btn btn-secondary" onClick={onClose}>
+                                        Avbryt
+                                    </button>
+                                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                                        {saving ? 'Sparar...' : 'Spara ändringar'}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
