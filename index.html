@@ -1390,7 +1390,7 @@
             );
         }
 
-        // Add Recipe Modal with automatic fetching
+        // Add Recipe Modal
         function AddRecipeModal({ onClose, onSave }) {
             const [name, setName] = useState('');
             const [description, setDescription] = useState('');
@@ -1402,9 +1402,7 @@
             const [notes, setNotes] = useState('');
             const [tags, setTags] = useState([]);
             const [saving, setSaving] = useState(false);
-            const [fetching, setFetching] = useState(false);
             const [excludedIngredients, setExcludedIngredients] = useState([]);
-            const [fetchError, setFetchError] = useState('');
 
             const availableTags = ['matlåda', 'snabb', 'vegetarisk'];
 
@@ -1421,111 +1419,6 @@
                 } catch (err) {
                     console.error('Error loading excluded ingredients:', err);
                 }
-            };
-
-            const handleFetchRecipe = async () => {
-                if (!externalLink.trim()) {
-                    alert('Ange en länk först');
-                    return;
-                }
-
-                setFetching(true);
-                setFetchError('');
-
-                try {
-                    // Try to fetch the page content
-                    const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(externalLink)}`);
-                    
-                    if (!response.ok) {
-                        throw new Error('Kunde inte hämta sidan');
-                    }
-
-                    const html = await response.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
-
-                    // Try to extract recipe data using common patterns
-                    let extractedName = '';
-                    let extractedIngredients = [];
-                    let extractedInstructions = '';
-                    let extractedImage = '';
-
-                    // Try to find recipe name (common patterns)
-                    const titleElement = doc.querySelector('h1, .recipe-title, [itemprop="name"]');
-                    if (titleElement) {
-                        extractedName = titleElement.textContent.trim();
-                    }
-
-                    // Try to find image
-                    const imgElement = doc.querySelector('.recipe-image img, [itemprop="image"], article img, .hero-image img');
-                    if (imgElement) {
-                        extractedImage = imgElement.src || imgElement.dataset.src || '';
-                        // Make sure it's an absolute URL
-                        if (extractedImage && !extractedImage.startsWith('http')) {
-                            const url = new URL(externalLink);
-                            extractedImage = url.origin + extractedImage;
-                        }
-                    }
-
-                    // Try to find ingredients (common patterns)
-                    const ingredientSelectors = [
-                        '.ingredients li',
-                        '[itemprop="recipeIngredient"]',
-                        '.ingredient-list li',
-                        '.recipe-ingredients li'
-                    ];
-
-                    for (const selector of ingredientSelectors) {
-                        const elements = doc.querySelectorAll(selector);
-                        if (elements.length > 0) {
-                            extractedIngredients = Array.from(elements)
-                                .map(el => el.textContent.trim())
-                                .filter(text => text.length > 0);
-                            break;
-                        }
-                    }
-
-                    // Try to find instructions (common patterns)
-                    const instructionSelectors = [
-                        '.instructions p',
-                        '[itemprop="recipeInstructions"]',
-                        '.recipe-instructions p',
-                        '.steps li',
-                        '.directions li'
-                    ];
-
-                    for (const selector of instructionSelectors) {
-                        const elements = doc.querySelectorAll(selector);
-                        if (elements.length > 0) {
-                            extractedInstructions = Array.from(elements)
-                                .map(el => el.textContent.trim())
-                                .filter(text => text.length > 0)
-                                .join('\n\n');
-                            break;
-                        }
-                    }
-
-                    // Set extracted data
-                    if (extractedName) setName(extractedName);
-                    if (extractedImage) setImageUrl(extractedImage);
-                    if (extractedIngredients.length > 0) {
-                        setIngredients(extractedIngredients.join('\n'));
-                    }
-                    if (extractedInstructions) setInstructions(extractedInstructions);
-
-                    // Check if we got anything useful
-                    if (!extractedName && extractedIngredients.length === 0 && !extractedInstructions) {
-                        setFetchError('Kunde inte hitta receptinformation automatiskt. Fyll i manuellt.');
-                    } else {
-                        alert('Receptet hämtades! Kontrollera och justera informationen innan du sparar.');
-                    }
-
-                } catch (err) {
-                    console.error('Error fetching recipe:', err);
-                    setFetchError('Kunde inte hämta receptet automatiskt. Detta kan bero på att sidan blockerar automatisk hämtning. Fyll i manuellt istället.');
-                }
-
-                setFetching(false);
             };
 
             const toggleTag = (tag) => {
@@ -1620,38 +1513,6 @@
                         <div className="modal-body">
                             <form onSubmit={handleSubmit}>
                                 <div className="form-group">
-                                    <label className="form-label">Länk till recept</label>
-                                    <div style={{display: 'flex', gap: '0.5rem'}}>
-                                        <input
-                                            type="url"
-                                            className="form-input"
-                                            value={externalLink}
-                                            onChange={(e) => setExternalLink(e.target.value)}
-                                            placeholder="https://..."
-                                            style={{flex: 1, marginBottom: 0}}
-                                        />
-                                        <button 
-                                            type="button"
-                                            className="btn btn-primary"
-                                            onClick={handleFetchRecipe}
-                                            disabled={fetching || !externalLink.trim()}
-                                        >
-                                            {fetching ? '⏳ Hämtar...' : '✨ Hämta automatiskt'}
-                                        </button>
-                                    </div>
-                                    {fetchError && (
-                                        <p style={{color: 'var(--error)', fontSize: '0.9rem', marginTop: '0.5rem'}}>
-                                            {fetchError}
-                                        </p>
-                                    )}
-                                    {!fetchError && externalLink && (
-                                        <p style={{color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem'}}>
-                                            💡 Klicka "Hämta automatiskt" för att försöka extrahera receptet från sidan
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="form-group">
                                     <label className="form-label">Receptnamn *</label>
                                     <input
                                         type="text"
@@ -1698,6 +1559,20 @@
                                         onChange={(e) => setImageUrl(e.target.value)}
                                         placeholder="https://..."
                                         required
+                                    />
+                                    <p style={{fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem'}}>
+                                        💡 Tips: Högerklicka på en bild → "Kopiera bildadress"
+                                    </p>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Länk till original recept</label>
+                                    <input
+                                        type="url"
+                                        className="form-input"
+                                        value={externalLink}
+                                        onChange={(e) => setExternalLink(e.target.value)}
+                                        placeholder="https://..."
                                     />
                                 </div>
 
