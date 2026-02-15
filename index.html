@@ -872,9 +872,11 @@
         function WeekView() {
             const [mealPlan, setMealPlan] = useState([]);
             const [recipes, setRecipes] = useState([]);
+            const [recipeTags, setRecipeTags] = useState({});
             const [loading, setLoading] = useState(true);
             const [selectedDay, setSelectedDay] = useState(null);
             const [showRecipeSelector, setShowRecipeSelector] = useState(false);
+            const [viewingRecipe, setViewingRecipe] = useState(null);
             const weekStart = getCurrentWeekStart();
 
             useEffect(() => {
@@ -892,7 +894,12 @@
                                 id,
                                 name,
                                 image_url,
-                                servings
+                                servings,
+                                description,
+                                instructions,
+                                notes,
+                                external_link,
+                                is_favorite
                             )
                         `)
                         .eq('week_start', weekStart);
@@ -903,8 +910,23 @@
                         .select('*')
                         .order('name');
 
+                    // Load all tags
+                    const { data: tagsData } = await supabase
+                        .from('recipe_tags')
+                        .select('*');
+
+                    // Group tags by recipe
+                    const tagsByRecipe = {};
+                    tagsData?.forEach(tag => {
+                        if (!tagsByRecipe[tag.recipe_id]) {
+                            tagsByRecipe[tag.recipe_id] = [];
+                        }
+                        tagsByRecipe[tag.recipe_id].push(tag.tag);
+                    });
+
                     setMealPlan(planData || []);
                     setRecipes(recipesData || []);
+                    setRecipeTags(tagsByRecipe);
                     setLoading(false);
                 } catch (err) {
                     console.error('Error loading data:', err);
@@ -915,6 +937,10 @@
             const handleDayClick = (dayId) => {
                 setSelectedDay(dayId);
                 setShowRecipeSelector(true);
+            };
+
+            const handleRecipeClick = (recipe) => {
+                setViewingRecipe(recipe);
             };
 
             const handleSelectRecipe = async (recipeId) => {
@@ -990,9 +1016,21 @@
                                     {recipe ? (
                                         <>
                                             {recipe.image_url && (
-                                                <img src={recipe.image_url} alt={recipe.name} className="day-image" />
+                                                <img 
+                                                    src={recipe.image_url} 
+                                                    alt={recipe.name} 
+                                                    className="day-image" 
+                                                    onClick={() => handleRecipeClick(recipe)}
+                                                    style={{cursor: 'pointer'}}
+                                                />
                                             )}
-                                            <div className="day-recipe">{recipe.name}</div>
+                                            <div 
+                                                className="day-recipe"
+                                                onClick={() => handleRecipeClick(recipe)}
+                                                style={{cursor: 'pointer'}}
+                                            >
+                                                {recipe.name}
+                                            </div>
                                             <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem'}}>
                                                 <button 
                                                     className="btn btn-ghost btn-small"
@@ -1037,6 +1075,23 @@
                             recipes={recipes}
                             onSelect={handleSelectRecipe}
                             onClose={() => setShowRecipeSelector(false)}
+                        />
+                    )}
+
+                    {viewingRecipe && (
+                        <RecipeDetailModal
+                            recipe={viewingRecipe}
+                            tags={recipeTags[viewingRecipe.id] || []}
+                            onClose={() => setViewingRecipe(null)}
+                            onDelete={async (id) => {
+                                await supabase.from('recipes').delete().eq('id', id);
+                                setViewingRecipe(null);
+                                loadData();
+                            }}
+                            onEdit={(recipe) => {
+                                // We don't have edit in week view, but need to provide the prop
+                                setViewingRecipe(null);
+                            }}
                         />
                     )}
                 </div>
@@ -1347,8 +1402,24 @@
             const [notes, setNotes] = useState('');
             const [tags, setTags] = useState([]);
             const [saving, setSaving] = useState(false);
+            const [excludedIngredients, setExcludedIngredients] = useState([]);
 
             const availableTags = ['matlåda', 'snabb', 'vegetarisk'];
+
+            useEffect(() => {
+                loadExcludedIngredients();
+            }, []);
+
+            const loadExcludedIngredients = async () => {
+                try {
+                    const { data } = await supabase
+                        .from('excluded_ingredients')
+                        .select('name');
+                    setExcludedIngredients(data?.map(i => i.name.toLowerCase()) || []);
+                } catch (err) {
+                    console.error('Error loading excluded ingredients:', err);
+                }
+            };
 
             const toggleTag = (tag) => {
                 if (tags.includes(tag)) {
@@ -1389,27 +1460,38 @@
                         await supabase.from('recipe_tags').insert(tagData);
                     }
 
-                    // Save ingredients (simple version - one per line)
+                    // Save ingredients (filter out excluded ones)
                     if (ingredients.trim()) {
                         const ingredientLines = ingredients.split('\n').filter(l => l.trim());
-                        const ingredientData = ingredientLines.map((line, idx) => {
-                            // Try to parse "amount name" format
-                            const parts = line.trim().split(' ');
-                            const amount = parts[0];
-                            const name = parts.slice(1).join(' ');
-                            
-                            return {
-                                recipe_id: recipeData.id,
-                                name: name || line,
-                                amount: amount || '',
-                                category: 'övrigt',
-                                sort_order: idx
-                            };
-                        });
+                        const ingredientData = ingredientLines
+                            .map((line, idx) => {
+                                const parts = line.trim().split(' ');
+                                const amount = parts[0];
+                                const name = parts.slice(1).join(' ');
+                                
+                                return {
+                                    recipe_id: recipeData.id,
+                                    name: name || line,
+                                    amount: amount || '',
+                                    category: 'övrigt',
+                                    sort_order: idx
+                                };
+                            })
+                            .filter(ing => {
+                                // Filter out excluded ingredients
+                                const ingName = ing.name.toLowerCase();
+                                return !excludedIngredients.some(excluded => ingName.includes(excluded));
+                            });
 
-                        await supabase
-                            .from('ingredients')
-                            .insert(ingredientData);
+                        if (ingredientData.length > 0) {
+                            await supabase.from('ingredients').insert(ingredientData);
+                        }
+
+                        // Notify user if ingredients were filtered
+                        const filteredCount = ingredientLines.length - ingredientData.length;
+                        if (filteredCount > 0) {
+                            alert(`${filteredCount} ingrediens(er) filtrerades bort baserat på dina allergi-inställningar`);
+                        }
                     }
 
                     onSave();
@@ -2036,6 +2118,10 @@
             const [shoppingList, setShoppingList] = useState([]);
             const [loading, setLoading] = useState(false);
             const [generating, setGenerating] = useState(false);
+            const [showAddItem, setShowAddItem] = useState(false);
+            const [newItemName, setNewItemName] = useState('');
+            const [newItemAmount, setNewItemAmount] = useState('');
+            const [newItemCategory, setNewItemCategory] = useState('övrigt');
             const weekStart = getCurrentWeekStart();
 
             useEffect(() => {
@@ -2081,16 +2167,29 @@
                         .select('*')
                         .in('recipe_id', recipeIds);
 
+                    // Get excluded ingredients
+                    const { data: excludedData } = await supabase
+                        .from('excluded_ingredients')
+                        .select('name');
+                    
+                    const excluded = excludedData?.map(i => i.name.toLowerCase()) || [];
+
                     // Clear existing shopping list
                     await supabase
                         .from('shopping_list')
                         .delete()
                         .eq('week_start', weekStart);
 
-                    // Group and combine similar ingredients
+                    // Group and combine similar ingredients, filtering excluded ones
                     const grouped = {};
                     ingredients.forEach(ing => {
-                        const key = ing.name.toLowerCase();
+                        // Check if ingredient should be excluded
+                        const ingName = ing.name.toLowerCase();
+                        if (excluded.some(exc => ingName.includes(exc))) {
+                            return; // Skip this ingredient
+                        }
+
+                        const key = ingName;
                         if (!grouped[key]) {
                             grouped[key] = {
                                 ingredient_name: ing.name,
@@ -2133,6 +2232,44 @@
                 }
             };
 
+            const deleteItem = async (itemId) => {
+                try {
+                    await supabase
+                        .from('shopping_list')
+                        .delete()
+                        .eq('id', itemId);
+
+                    loadShoppingList();
+                } catch (err) {
+                    console.error('Error deleting item:', err);
+                }
+            };
+
+            const handleAddItem = async (e) => {
+                e.preventDefault();
+                if (!newItemName.trim()) return;
+
+                try {
+                    await supabase
+                        .from('shopping_list')
+                        .insert([{
+                            ingredient_name: newItemName,
+                            amount: newItemAmount,
+                            category: newItemCategory,
+                            is_checked: false,
+                            week_start: weekStart
+                        }]);
+
+                    setNewItemName('');
+                    setNewItemAmount('');
+                    setNewItemCategory('övrigt');
+                    setShowAddItem(false);
+                    loadShoppingList();
+                } catch (err) {
+                    console.error('Error adding item:', err);
+                }
+            };
+
             const copyList = () => {
                 const text = shoppingList
                     .map(item => `${item.is_checked ? '✓' : '○'} ${item.ingredient_name} - ${item.amount}`)
@@ -2140,6 +2277,21 @@
                 
                 navigator.clipboard.writeText(text);
                 alert('Inköpslista kopierad!');
+            };
+
+            const clearList = async () => {
+                if (!confirm('Är du säker på att du vill rensa hela inköpslistan?')) return;
+                
+                try {
+                    await supabase
+                        .from('shopping_list')
+                        .delete()
+                        .eq('week_start', weekStart);
+                    
+                    loadShoppingList();
+                } catch (err) {
+                    console.error('Error clearing list:', err);
+                }
             };
 
             const groupedByCategory = CATEGORIES.reduce((acc, cat) => {
@@ -2157,10 +2309,21 @@
                         <h1 className="week-title">Inköpslista</h1>
                         <div style={{display: 'flex', gap: '1rem'}}>
                             {shoppingList.length > 0 && (
-                                <button className="btn btn-secondary" onClick={copyList}>
-                                    📋 Kopiera lista
-                                </button>
+                                <>
+                                    <button className="btn btn-ghost btn-small" onClick={clearList}>
+                                        🗑️ Rensa
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={copyList}>
+                                        📋 Kopiera
+                                    </button>
+                                </>
                             )}
+                            <button 
+                                className="btn btn-secondary" 
+                                onClick={() => setShowAddItem(!showAddItem)}
+                            >
+                                + Lägg till vara
+                            </button>
                             <button 
                                 className="btn btn-primary" 
                                 onClick={generateList}
@@ -2171,14 +2334,63 @@
                         </div>
                     </div>
 
+                    {showAddItem && (
+                        <form onSubmit={handleAddItem} className="card" style={{marginBottom: '2rem', padding: '1.5rem'}}>
+                            <h3 style={{marginBottom: '1rem'}}>Lägg till egen vara</h3>
+                            <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '1rem', alignItems: 'end'}}>
+                                <div className="form-group" style={{marginBottom: 0}}>
+                                    <label className="form-label">Vara</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="t.ex. Mjölk"
+                                        value={newItemName}
+                                        onChange={(e) => setNewItemName(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group" style={{marginBottom: 0}}>
+                                    <label className="form-label">Mängd</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="t.ex. 1 liter"
+                                        value={newItemAmount}
+                                        onChange={(e) => setNewItemAmount(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group" style={{marginBottom: 0}}>
+                                    <label className="form-label">Kategori</label>
+                                    <select
+                                        className="form-input"
+                                        value={newItemCategory}
+                                        onChange={(e) => setNewItemCategory(e.target.value)}
+                                    >
+                                        {CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button type="submit" className="btn btn-primary">
+                                    Lägg till
+                                </button>
+                            </div>
+                        </form>
+                    )}
+
                     {shoppingList.length === 0 ? (
                         <div className="card text-center" style={{padding: '4rem'}}>
                             <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>
                                 Ingen inköpslista genererad än
                             </p>
-                            <button className="btn btn-primary" onClick={generateList}>
-                                Generera från veckomeny
-                            </button>
+                            <div style={{display: 'flex', gap: '1rem', justifyContent: 'center'}}>
+                                <button className="btn btn-secondary" onClick={() => setShowAddItem(true)}>
+                                    Lägg till vara manuellt
+                                </button>
+                                <button className="btn btn-primary" onClick={generateList}>
+                                    Generera från veckomeny
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className="card" style={{padding: '2rem'}}>
@@ -2195,15 +2407,27 @@
                                             <div 
                                                 key={item.id} 
                                                 className={`shopping-item ${item.is_checked ? 'checked' : ''}`}
-                                                onClick={() => toggleCheck(item)}
                                             >
-                                                <div className={`shopping-checkbox ${item.is_checked ? 'checked' : ''}`} />
-                                                <div style={{flex: 1}}>
+                                                <div 
+                                                    className={`shopping-checkbox ${item.is_checked ? 'checked' : ''}`}
+                                                    onClick={() => toggleCheck(item)}
+                                                />
+                                                <div style={{flex: 1}} onClick={() => toggleCheck(item)}>
                                                     <span style={{fontWeight: 500}}>{item.ingredient_name}</span>
                                                     <span style={{marginLeft: '1rem', color: 'var(--text-secondary)'}}>
                                                         {item.amount}
                                                     </span>
                                                 </div>
+                                                <button
+                                                    className="btn btn-ghost btn-small"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteItem(item.id);
+                                                    }}
+                                                    style={{padding: '0.25rem 0.5rem'}}
+                                                >
+                                                    ×
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -2217,16 +2441,144 @@
 
         // Settings View (simplified)
         function SettingsView() {
+            const [excludedIngredients, setExcludedIngredients] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [newIngredient, setNewIngredient] = useState('');
+            const [adding, setAdding] = useState(false);
+
+            useEffect(() => {
+                loadExcludedIngredients();
+            }, []);
+
+            const loadExcludedIngredients = async () => {
+                try {
+                    const { data } = await supabase
+                        .from('excluded_ingredients')
+                        .select('*')
+                        .order('name');
+
+                    setExcludedIngredients(data || []);
+                    setLoading(false);
+                } catch (err) {
+                    console.error('Error loading excluded ingredients:', err);
+                    setLoading(false);
+                }
+            };
+
+            const handleAdd = async (e) => {
+                e.preventDefault();
+                if (!newIngredient.trim()) return;
+
+                setAdding(true);
+                try {
+                    const { error } = await supabase
+                        .from('excluded_ingredients')
+                        .insert([{ name: newIngredient.trim().toLowerCase() }]);
+
+                    if (error) {
+                        if (error.code === '23505') { // Unique constraint violation
+                            alert('Denna ingrediens finns redan i listan');
+                        } else {
+                            throw error;
+                        }
+                    } else {
+                        setNewIngredient('');
+                        loadExcludedIngredients();
+                    }
+                } catch (err) {
+                    console.error('Error adding excluded ingredient:', err);
+                    alert('Kunde inte lägga till ingrediens');
+                }
+                setAdding(false);
+            };
+
+            const handleDelete = async (id) => {
+                try {
+                    await supabase
+                        .from('excluded_ingredients')
+                        .delete()
+                        .eq('id', id);
+
+                    loadExcludedIngredients();
+                } catch (err) {
+                    console.error('Error deleting excluded ingredient:', err);
+                }
+            };
+
+            if (loading) {
+                return <div className="loading"><div className="spinner"></div><p>Laddar inställningar...</p></div>;
+            }
+
             return (
                 <div>
                     <div className="week-header">
                         <h1 className="week-title">Inställningar</h1>
                     </div>
+                    
                     <div className="card" style={{padding: '2rem'}}>
-                        <h3 style={{marginBottom: '1rem'}}>Allergier & Preferenser</h3>
-                        <p style={{color: 'var(--text-muted)'}}>
-                            Kommer snart...
+                        <h3 style={{marginBottom: '1rem', fontSize: '1.3rem'}}>Allergier & Exkluderade Ingredienser</h3>
+                        <p style={{color: 'var(--text-secondary)', marginBottom: '2rem'}}>
+                            Ingredienser som läggs till här kommer automatiskt att tas bort från receptens ingredienslistor.
+                            Använd detta för allergier eller ingredienser ni inte gillar.
                         </p>
+
+                        <form onSubmit={handleAdd} style={{marginBottom: '2rem'}}>
+                            <div style={{display: 'flex', gap: '1rem'}}>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="t.ex. lök, paprika, nötter..."
+                                    value={newIngredient}
+                                    onChange={(e) => setNewIngredient(e.target.value)}
+                                    disabled={adding}
+                                    style={{flex: 1, marginBottom: 0}}
+                                />
+                                <button type="submit" className="btn btn-primary" disabled={adding}>
+                                    {adding ? 'Lägger till...' : 'Lägg till'}
+                                </button>
+                            </div>
+                        </form>
+
+                        {excludedIngredients.length === 0 ? (
+                            <p style={{textAlign: 'center', color: 'var(--text-muted)', padding: '3rem'}}>
+                                Inga exkluderade ingredienser ännu
+                            </p>
+                        ) : (
+                            <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+                                {excludedIngredients.map(ing => (
+                                    <div 
+                                        key={ing.id}
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            padding: '1rem',
+                                            background: 'var(--bg-secondary)',
+                                            borderRadius: '8px'
+                                        }}
+                                    >
+                                        <span style={{fontSize: '1rem', textTransform: 'capitalize'}}>{ing.name}</span>
+                                        <button
+                                            className="btn btn-ghost btn-small"
+                                            onClick={() => {
+                                                if (confirm(`Ta bort "${ing.name}" från listan?`)) {
+                                                    handleDelete(ing.id);
+                                                }
+                                            }}
+                                        >
+                                            × Ta bort
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div style={{marginTop: '2rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px'}}>
+                            <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
+                                <strong>💡 Tips:</strong> När du lägger till eller redigerar recept kommer dessa ingredienser automatiskt 
+                                att filtreras bort från ingredienslistan. Detta påverkar också inköpslistan som genereras från veckomenyn.
+                            </p>
+                        </div>
                     </div>
                 </div>
             );
