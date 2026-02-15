@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&family=Work+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -17,34 +17,36 @@
         }
 
         :root {
-            /* Mjuka, varma färger - minimalistisk palett */
-            --bg-primary: #FDFCF9;
-            --bg-secondary: #F7F5F2;
+            /* Calm & wellness-inspired palette */
+            --bg-primary: #F9F7F4;
+            --bg-secondary: #F0EDE8;
             --bg-card: #FFFFFF;
-            --text-primary: #2B2B2B;
+            --text-primary: #3D3D3D;
             --text-secondary: #6B6B6B;
             --text-muted: #9B9B9B;
-            --accent: #D4A574;
-            --accent-light: #E8C9A8;
-            --accent-dark: #B8915E;
-            --border: #E8E6E3;
-            --success: #7BA05B;
-            --error: #C66B6B;
-            --shadow: rgba(0, 0, 0, 0.04);
+            --accent: #A8B5A6;
+            --accent-light: #C7D4C5;
+            --accent-dark: #8A9788;
+            --accent-warm: #C9B8A3;
+            --border: #E5E2DD;
+            --success: #A8B5A6;
+            --error: #D4A5A5;
+            --shadow: rgba(0, 0, 0, 0.06);
+            --shadow-soft: rgba(0, 0, 0, 0.03);
         }
 
         body {
-            font-family: 'Work Sans', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            line-height: 1.7;
+            line-height: 1.6;
             -webkit-font-smoothing: antialiased;
         }
 
         h1, h2, h3, h4 {
-            font-family: 'Crimson Pro', serif;
-            font-weight: 400;
-            letter-spacing: -0.02em;
+            font-family: 'Lora', 'Inter', serif;
+            font-weight: 500;
+            letter-spacing: -0.01em;
         }
 
         .app-container {
@@ -59,14 +61,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 1px 3px var(--shadow-soft);
         }
 
         .logo {
-            font-family: 'Crimson Pro', serif;
-            font-size: 2rem;
-            font-weight: 300;
+            font-family: 'Lora', serif;
+            font-size: 1.75rem;
+            font-weight: 500;
             color: var(--text-primary);
-            letter-spacing: 0.02em;
+            letter-spacing: -0.01em;
         }
 
         .user-info {
@@ -76,41 +79,46 @@
         }
 
         .user-name {
-            font-size: 0.95rem;
+            font-size: 0.9375rem;
             color: var(--text-secondary);
-            font-weight: 300;
+            font-weight: 400;
         }
 
         /* Buttons */
         .btn {
-            padding: 0.75rem 2rem;
+            padding: 0.875rem 1.75rem;
             border: none;
             background: none;
-            font-family: 'Work Sans', sans-serif;
-            font-size: 0.95rem;
-            font-weight: 400;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
-            border-radius: 2px;
-            letter-spacing: 0.02em;
+            border-radius: 12px;
+            letter-spacing: 0;
         }
 
         .btn-primary {
             background: var(--accent);
             color: white;
+            box-shadow: 0 2px 8px var(--shadow-soft);
         }
 
         .btn-primary:hover {
             background: var(--accent-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow);
         }
 
         .btn-secondary {
-            border: 1px solid var(--border);
+            border: 1.5px solid var(--border);
             color: var(--text-primary);
+            background: var(--bg-card);
         }
 
         .btn-secondary:hover {
             background: var(--bg-secondary);
+            border-color: var(--accent-light);
         }
 
         .btn-ghost {
@@ -119,10 +127,11 @@
 
         .btn-ghost:hover {
             color: var(--text-primary);
+            background: var(--bg-secondary);
         }
 
         .btn-small {
-            padding: 0.5rem 1.25rem;
+            padding: 0.625rem 1.25rem;
             font-size: 0.875rem;
         }
 
@@ -175,16 +184,16 @@
             max-width: 420px;
             margin: 8rem auto;
             background: var(--bg-card);
-            padding: 4rem;
-            border-radius: 2px;
-            box-shadow: 0 2px 20px var(--shadow);
+            padding: 3rem 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px var(--shadow);
         }
 
         .login-title {
-            font-family: 'Crimson Pro', serif;
-            font-size: 2.5rem;
-            font-weight: 300;
-            margin-bottom: 3rem;
+            font-family: 'Lora', serif;
+            font-size: 2rem;
+            font-weight: 500;
+            margin-bottom: 2.5rem;
             text-align: center;
             color: var(--text-primary);
         }
@@ -205,18 +214,20 @@
 
         .form-input {
             width: 100%;
-            padding: 1rem;
-            border: 1px solid var(--border);
-            border-radius: 2px;
-            font-family: 'Work Sans', sans-serif;
-            font-size: 1rem;
-            background: var(--bg-primary);
+            padding: 0.875rem 1rem;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9375rem;
+            background: var(--bg-card);
             transition: all 0.3s ease;
+            color: var(--text-primary);
         }
 
         .form-input:focus {
             outline: none;
             border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-light);
         }
 
         .form-textarea {
@@ -228,13 +239,15 @@
         .card {
             background: var(--bg-card);
             padding: 2rem;
-            border-radius: 2px;
+            border-radius: 16px;
             border: 1px solid var(--border);
             transition: all 0.3s ease;
+            box-shadow: 0 2px 8px var(--shadow-soft);
         }
 
         .card:hover {
-            box-shadow: 0 4px 20px var(--shadow);
+            box-shadow: 0 4px 16px var(--shadow);
+            transform: translateY(-2px);
         }
 
         /* Grid */
@@ -276,25 +289,28 @@
 
         .day-card {
             background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 2px;
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
             padding: 1.5rem;
-            min-height: 200px;
+            min-height: 220px;
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
+            box-shadow: 0 2px 8px var(--shadow-soft);
         }
 
         .day-card:hover {
-            border-color: var(--accent);
-            box-shadow: 0 4px 12px var(--shadow);
+            border-color: var(--accent-light);
+            box-shadow: 0 4px 16px var(--shadow);
+            transform: translateY(-3px);
         }
 
         .day-name {
-            font-family: 'Crimson Pro', serif;
-            font-size: 1.1rem;
+            font-family: 'Lora', serif;
+            font-size: 1.125rem;
             margin-bottom: 1rem;
-            color: var(--text-secondary);
+            color: var(--text-primary);
+            font-weight: 500;
         }
 
         .day-recipe {
@@ -313,7 +329,7 @@
             width: 100%;
             height: 120px;
             object-fit: cover;
-            border-radius: 2px;
+            border-radius: 12px;
             margin-bottom: 1rem;
         }
 
@@ -326,17 +342,19 @@
 
         .recipe-card {
             background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 2px;
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
             overflow: hidden;
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
+            box-shadow: 0 2px 8px var(--shadow-soft);
         }
 
         .recipe-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 24px var(--shadow);
+            border-color: var(--accent-light);
         }
 
         .recipe-image {
@@ -350,10 +368,11 @@
         }
 
         .recipe-name {
-            font-family: 'Crimson Pro', serif;
-            font-size: 1.3rem;
+            font-family: 'Lora', serif;
+            font-size: 1.25rem;
             margin-bottom: 0.5rem;
-            font-weight: 400;
+            font-weight: 500;
+            color: var(--text-primary);
         }
 
         .recipe-tags {
@@ -364,12 +383,13 @@
         }
 
         .recipe-tag {
-            padding: 0.25rem 0.75rem;
+            padding: 0.375rem 0.875rem;
             background: var(--bg-secondary);
             color: var(--text-secondary);
-            font-size: 0.8rem;
-            border-radius: 2px;
-            letter-spacing: 0.02em;
+            font-size: 0.8125rem;
+            border-radius: 20px;
+            letter-spacing: 0;
+            font-weight: 500;
         }
 
         .recipe-favorite {
@@ -411,7 +431,7 @@
 
         .modal {
             background: var(--bg-card);
-            border-radius: 2px;
+            border-radius: 20px;
             max-width: 900px;
             width: 100%;
             max-height: 90vh;
@@ -475,7 +495,7 @@
             width: 100%;
             max-height: 400px;
             object-fit: cover;
-            border-radius: 2px;
+            border-radius: 16px;
             margin-bottom: 2rem;
         }
 
