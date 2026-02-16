@@ -942,26 +942,26 @@
             const handleRecipeClick = (recipe) => {
                 setViewingRecipe(recipe);
             };
-
-            const handleSelectRecipe = async (recipeId) => {
+const handleSelectRecipe = async (recipeId, customServings) => {
                 try {
-                    // Check if day already has a recipe
                     const existing = mealPlan.find(p => p.day_of_week === selectedDay);
                     
                     if (existing) {
-                        // Update existing
                         await supabase
                             .from('meal_plan')
-                            .update({ recipe_id: recipeId })
+                            .update({ 
+                                recipe_id: recipeId,
+                                custom_servings: customServings 
+                            })
                             .eq('id', existing.id);
                     } else {
-                        // Insert new
                         await supabase
                             .from('meal_plan')
                             .insert([{
                                 recipe_id: recipeId,
                                 day_of_week: selectedDay,
-                                week_start: weekStart
+                                week_start: weekStart,
+                                custom_servings: customServings
                             }]);
                     }
 
@@ -1030,6 +1030,11 @@
                                                 style={{cursor: 'pointer'}}
                                             >
                                                 {recipe.name}
+                                                {meal.custom_servings && (
+                                                    <div style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem'}}>
+                                                        {meal.custom_servings} portioner
+                                                    </div>
+                                                )}
                                             </div>
                                             <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem'}}>
                                                 <button 
@@ -1098,7 +1103,7 @@
             );
         }
 
-        // Recipe Selector Modal
+// Recipe Selector Modal
         function RecipeSelectorModal({ recipes, onSelect, onClose }) {
             const [search, setSearch] = useState('');
             const [filter, setFilter] = useState('all');
@@ -2144,13 +2149,23 @@
                 setLoading(false);
             };
 
+            const scaleIngredientAmount = (amount, originalServings, newServings) => {
+                const match = amount.match(/^([\d.,]+)\s*(.*)$/);
+                if (match) {
+                    const number = parseFloat(match[1].replace(',', '.'));
+                    const unit = match[2];
+                    const scaled = (number * newServings) / originalServings;
+                    return `${scaled.toFixed(1).replace('.0', '')} ${unit}`;
+                }
+                return amount;
+            };
             const generateList = async () => {
                 setGenerating(true);
                 try {
                     // Get meal plan for current week
                     const { data: mealPlan } = await supabase
                         .from('meal_plan')
-                        .select('recipe_id')
+                        .select('recipe_id, custom_servings')
                         .eq('week_start', weekStart);
 
                     if (!mealPlan || mealPlan.length === 0) {
@@ -2160,12 +2175,28 @@
                     }
 
                     const recipeIds = mealPlan.map(m => m.recipe_id);
+                    // Create a map of recipe_id to custom_servings
+                    const servingsMap = {};
+                    mealPlan.forEach(m => {
+                        servingsMap[m.recipe_id] = m.custom_servings;
+                    });
 
                     // Get all ingredients for these recipes
                     const { data: ingredients } = await supabase
                         .from('ingredients')
                         .select('*')
                         .in('recipe_id', recipeIds);
+                    
+                    // Get recipe servings to scale amounts
+                    const { data: recipesData } = await supabase
+                        .from('recipes')
+                        .select('id, servings')
+                        .in('id', recipeIds);
+
+                    const recipeServingsMap = {};
+                    recipesData?.forEach(r => {
+                        recipeServingsMap[r.id] = r.servings;
+                    });
 
                     // Get excluded ingredients
                     const { data: excludedData } = await supabase
@@ -2191,9 +2222,14 @@
 
                         const key = ingName;
                         if (!grouped[key]) {
+                            // Scale amount based on custom servings
+                            const originalServings = recipeServingsMap[ing.recipe_id] || 4;
+                            const customServings = servingsMap[ing.recipe_id] || originalServings;
+                            const scaledAmount = scaleIngredientAmount(ing.amount, originalServings, customServings);
+
                             grouped[key] = {
                                 ingredient_name: ing.name,
-                                amount: ing.amount,
+                                amount: scaledAmount,
                                 category: ing.category,
                                 is_checked: false,
                                 week_start: weekStart
