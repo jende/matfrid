@@ -949,9 +949,10 @@
             const handleRecipeClick = (recipe) => {
                 setViewingRecipe(recipe);
             };
-const handleSelectRecipe = async (recipeId, customServings) => {
+const handleSelectRecipe = async (recipeId, customServings, targetDay = null) => {
                 try {
-                    const existing = mealPlan.find(p => p.day_of_week === selectedDay);
+                    const dayToUse = targetDay || selectedDay;
+                    const existing = mealPlan.find(p => p.day_of_week === dayToUse);
                     
                     if (existing) {
                         await supabase
@@ -966,7 +967,7 @@ const handleSelectRecipe = async (recipeId, customServings) => {
                             .from('meal_plan')
                             .insert([{
                                 recipe_id: recipeId,
-                                day_of_week: selectedDay,
+                                day_of_week: dayToUse,
                                 week_start: weekStart,
                                 custom_servings: customServings
                             }]);
@@ -988,7 +989,7 @@ const handleSelectRecipe = async (recipeId, customServings) => {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)];
-                await handleSelectRecipe(randomRecipe.id, randomRecipe.servings);
+                await handleSelectRecipe(randomRecipe.id, randomRecipe.servings, dayId);
                 
                 setGenerating(false);
             };
