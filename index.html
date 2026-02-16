@@ -126,41 +126,47 @@
             font-size: 0.875rem;
         }
 
-        /* Navigation */
+/* Navigation */
         .nav-container {
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .nav-tabs {
             max-width: 1400px;
             margin: 0 auto;
             display: flex;
-            gap: 0;
-            padding: 0 3rem;
+            gap: 0.5rem;
+            padding: 1rem 1.5rem;
+            min-width: min-content;
         }
 
         .nav-tab {
-            padding: 1.5rem 2rem;
-            background: none;
-            border: none;
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             font-family: 'Work Sans', sans-serif;
-            font-size: 1rem;
-            font-weight: 300;
+            font-size: 0.95rem;
+            font-weight: 400;
             color: var(--text-secondary);
             cursor: pointer;
             transition: all 0.3s ease;
-            border-bottom: 2px solid transparent;
-            letter-spacing: 0.02em;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .nav-tab:hover {
             color: var(--text-primary);
+            border-color: var(--accent-light);
         }
 
         .nav-tab.active {
-            color: var(--text-primary);
-            border-bottom-color: var(--accent);
+            color: white;
+            background: var(--accent);
+            border-color: var(--accent);
         }
 
         /* Main Content */
@@ -878,6 +884,7 @@
             const [showRecipeSelector, setShowRecipeSelector] = useState(false);
             const [viewingRecipe, setViewingRecipe] = useState(null);
             const weekStart = getCurrentWeekStart();
+            const [generating, setGenerating] = useState(false);
 
             useEffect(() => {
                 loadData();
@@ -974,9 +981,16 @@ const handleSelectRecipe = async (recipeId, customServings) => {
 
             const handleRandomRecipe = async (dayId) => {
                 if (recipes.length === 0) return;
-                const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)];
+                setGenerating(true);
                 setSelectedDay(dayId);
-                await handleSelectRecipe(randomRecipe.id);
+                
+                // Simulate loading for better UX
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const randomRecipe = recipes[Math.floor(Math.random() * recipes.length)];
+                await handleSelectRecipe(randomRecipe.id, randomRecipe.servings);
+                
+                setGenerating(false);
             };
 
             const handleRemoveRecipe = async (dayId) => {
@@ -1036,36 +1050,41 @@ const handleSelectRecipe = async (recipeId, customServings) => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem'}}>
+                                                <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem', flexDirection: 'column'}}>
                                                 <button 
-                                                    className="btn btn-ghost btn-small"
+                                                    className="btn btn-secondary btn-small"
                                                     onClick={() => handleDayClick(day.id)}
+                                                    style={{width: '100%'}}
                                                 >
-                                                    Byt
+                                                    🔄 Byt recept
                                                 </button>
                                                 <button 
                                                     className="btn btn-ghost btn-small"
                                                     onClick={() => handleRemoveRecipe(day.id)}
+                                                    style={{width: '100%'}}
                                                 >
-                                                    Ta bort
+                                                    🗑️ Ta bort
                                                 </button>
                                             </div>
                                         </>
                                     ) : (
                                         <>
                                             <div className="day-empty">Ingen middag planerad</div>
-                                            <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem'}}>
+                                            <div style={{marginTop: '1rem', display: 'flex', gap: '0.5rem', flexDirection: 'column'}}>
                                                 <button 
-                                                    className="btn btn-secondary btn-small"
+                                                    className="btn btn-primary btn-small"
                                                     onClick={() => handleDayClick(day.id)}
+                                                    style={{width: '100%'}}
                                                 >
-                                                    Välj recept
+                                                    📖 Välj recept
                                                 </button>
                                                 <button 
-                                                    className="btn btn-ghost btn-small"
+                                                    className="btn btn-secondary btn-small"
                                                     onClick={() => handleRandomRecipe(day.id)}
+                                                    disabled={generating}
+                                                    style={{width: '100%'}}
                                                 >
-                                                    🎲 Slumpa
+                                                    {generating && selectedDay === day.id ? '⏳ Slumpar...' : '🎲 Slumpa'}
                                                 </button>
                                             </div>
                                         </>
@@ -1695,7 +1714,6 @@ const handleSelectRecipe = async (recipeId, customServings) => {
         // Recipe Detail Modal (vackert receptkort)
         function RecipeDetailModal({ recipe, tags, onClose, onDelete, onEdit }) {
             const [ingredients, setIngredients] = useState([]);
-            const [servings, setServings] = useState(recipe.servings);
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
@@ -1793,19 +1811,8 @@ const handleSelectRecipe = async (recipeId, customServings) => {
                                 )}
 
                                 <div className="recipe-detail-meta">
-                                    <div>
-                                        <label style={{marginRight: '0.5rem'}}>Portioner:</label>
-                                        <select
-                                            value={servings}
-                                            onChange={(e) => setServings(parseInt(e.target.value))}
-                                            style={{padding: '0.25rem 0.5rem', border: '1px solid var(--border)', borderRadius: '2px'}}
-                                        >
-                                            <option value="2">2</option>
-                                            <option value="4">4</option>
-                                            <option value="6">6</option>
-                                            <option value="8">8</option>
-                                            <option value="10">10</option>
-                                        </select>
+                                    <div style={{textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.95rem'}}>
+                                        {recipe.servings} portioner
                                     </div>
                                 </div>
 
@@ -1820,7 +1827,7 @@ const handleSelectRecipe = async (recipeId, customServings) => {
                                                     {ingredients.map(ing => (
                                                         <li key={ing.id} className="ingredient-item">
                                                             <span>{ing.name}</span>
-                                                            <span>{scaleAmount(ing.amount, recipe.servings, servings)}</span>
+                                                            <span>{ing.amount}</span>
                                                         </li>
                                                     ))}
                                                 </ul>
