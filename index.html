@@ -1540,13 +1540,63 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
                         const ingredientLines = ingredients.split('\n').filter(l => l.trim());
                         const ingredientData = ingredientLines
                             .map((line, idx) => {
-                                const parts = line.trim().split(' ');
-                                const amount = parts[0];
-                                const name = parts.slice(1).join(' ');
+                                const trimmed = line.trim();
+                                
+                                // Smart parsing to handle different formats:
+                                // "2 dl mjölk" -> name: mjölk, amount: 2 dl
+                                // "dl mjölk 2" -> name: mjölk, amount: 2 dl
+                                // "mjölk 2 dl" -> name: mjölk, amount: 2 dl
+                                
+                                let name = '';
+                                let amount = '';
+                                
+                                // Check if line starts with a number (most common format)
+                                const startsWithNumber = /^[\d.,]+/.test(trimmed);
+                                
+                                if (startsWithNumber) {
+                                    // Format: "2 dl mjölk" or "2 mjölk"
+                                    const parts = trimmed.split(' ');
+                                    amount = parts[0];
+                                    
+                                    // Check if second part is a unit (dl, g, msk, etc)
+                                    if (parts[1] && /^(dl|cl|ml|l|g|kg|mg|msk|tsk|krm|st|förp|paket|burk)\.?$/i.test(parts[1])) {
+                                        amount = parts[0] + ' ' + parts[1];
+                                        name = parts.slice(2).join(' ');
+                                    } else {
+                                        name = parts.slice(1).join(' ');
+                                    }
+                                } else {
+                                    // Format: "dl mjölk 2" or "mjölk 2 dl"
+                                    const parts = trimmed.split(' ');
+                                    
+                                    // Check if first word is a unit
+                                    if (/^(dl|cl|ml|l|g|kg|mg|msk|tsk|krm|st|förp|paket|burk)\.?$/i.test(parts[0])) {
+                                        // Format: "dl mjölk 2" -> find the number
+                                        const numberIndex = parts.findIndex(p => /^[\d.,]+$/.test(p));
+                                        if (numberIndex !== -1) {
+                                            amount = parts[numberIndex] + ' ' + parts[0];
+                                            name = parts.slice(1, numberIndex).concat(parts.slice(numberIndex + 1)).join(' ');
+                                        } else {
+                                            name = parts.slice(1).join(' ');
+                                            amount = parts[0];
+                                        }
+                                    } else {
+                                        // Format: "mjölk 2 dl" -> ingredient name first
+                                        const numberIndex = parts.findIndex(p => /^[\d.,]+$/.test(p));
+                                        if (numberIndex !== -1) {
+                                            name = parts.slice(0, numberIndex).join(' ');
+                                            amount = parts.slice(numberIndex).join(' ');
+                                        } else {
+                                            // No clear number/unit pattern, treat as name
+                                            name = trimmed;
+                                            amount = '';
+                                        }
+                                    }
+                                }
                                 
                                 return {
                                     recipe_id: recipeData.id,
-                                    name: name || line,
+                                    name: name || trimmed,
                                     amount: amount || '',
                                     category: 'övrigt',
                                     sort_order: idx
