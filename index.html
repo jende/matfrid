@@ -702,6 +702,24 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
         
+        // Helper function for tag emojis
+        const getTagEmoji = (tag) => {
+            const emojiMap = {
+                'matlåda': '🥡',
+                'snabb': '⚡',
+                'jul': '🎄',
+                'påsk': '🐣',
+                'midsommar': '🌸',
+                'gryta': '🍲',
+                'soppa': '🍜',
+                'fisk': '🐟',
+                'kött': '🥩',
+                'kyckling': '🍗',
+                'billigt': '💰'
+            };
+            return emojiMap[tag] || '';
+        };
+        
         // Supabase konfiguration
         const SUPABASE_URL = 'https://sxgrwpqdocluntpuotib.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4Z3J3cHFkb2NsdW50cHVvdGliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTA5NDksImV4cCI6MjA4NjY2Njk0OX0.r9GqncCA9iH8iqhzV4YB8b-WYMd-mf2z_e8aZ8e951k';
@@ -1346,24 +1364,15 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
                             ⭐ Favoriter
                         </button>
                         <div style={{borderLeft: '1px solid var(--border)', margin: '0 0.5rem'}}></div>
-                        <button 
-                            className={`btn ${tagFilter === 'matlåda' ? 'btn-primary' : 'btn-secondary'} btn-small`}
-                            onClick={() => { setFilter('all'); setTagFilter(tagFilter === 'matlåda' ? null : 'matlåda'); }}
-                        >
-                            🥡 Matlåda
-                        </button>
-                        <button 
-                            className={`btn ${tagFilter === 'snabb' ? 'btn-primary' : 'btn-secondary'} btn-small`}
-                            onClick={() => { setFilter('all'); setTagFilter(tagFilter === 'snabb' ? null : 'snabb'); }}
-                        >
-                            ⚡ Snabb
-                        </button>
-                        <button 
-                            className={`btn ${tagFilter === 'vegetarisk' ? 'btn-primary' : 'btn-secondary'} btn-small`}
-                            onClick={() => { setFilter('all'); setTagFilter(tagFilter === 'vegetarisk' ? null : 'vegetarisk'); }}
-                        >
-                            🥬 Vegetarisk
-                        </button>
+                        {['matlåda', 'snabb', 'jul', 'påsk', 'midsommar', 'gryta', 'soppa', 'fisk', 'kött', 'kyckling', 'billigt'].map(tag => (
+                            <button 
+                                key={tag}
+                                className={`btn ${tagFilter === tag ? 'btn-primary' : 'btn-secondary'} btn-small`}
+                                onClick={() => { setFilter('all'); setTagFilter(tagFilter === tag ? null : tag); }}
+                            >
+                                {getTagEmoji(tag)} {tag.charAt(0).toUpperCase() + tag.slice(1)}
+                            </button>
+                        ))}
                     </div>
 
                     {filteredRecipes.length === 0 ? (
@@ -1479,7 +1488,7 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
             const [saving, setSaving] = useState(false);
             const [excludedIngredients, setExcludedIngredients] = useState([]);
 
-            const availableTags = ['matlåda', 'snabb', 'vegetarisk'];
+            const availableTags = ['matlåda', 'snabb', 'jul', 'påsk', 'midsommar', 'gryta', 'soppa', 'fisk', 'kött', 'kyckling', 'billigt'];
 
             useEffect(() => {
                 loadExcludedIngredients();
@@ -1503,6 +1512,27 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
                     setTags([...tags, tag]);
                 }
             };
+
+            // Auto-detect tags from recipe name
+            useEffect(() => {
+                if (!name) return;
+                
+                const nameLower = name.toLowerCase();
+                const autoTags = [];
+                
+                // Check for keywords in recipe name
+                if (nameLower.includes('gryta')) autoTags.push('gryta');
+                if (nameLower.includes('soppa')) autoTags.push('soppa');
+                if (nameLower.includes('fisk') || nameLower.includes('lax') || nameLower.includes('torsk')) autoTags.push('fisk');
+                if (nameLower.includes('kött') || nameLower.includes('fläsk') || nameLower.includes('köttfärs') || nameLower.includes('biff')) autoTags.push('kött');
+                if (nameLower.includes('kyckling')) autoTags.push('kyckling');
+                
+                // Only add tags that aren't already added
+                const newTags = [...new Set([...tags, ...autoTags])];
+                if (newTags.length !== tags.length) {
+                    setTags(newTags);
+                }
+            }, [name]);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -1669,7 +1699,7 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
                                                 style={{cursor: 'pointer', border: tags.includes(tag) ? 'none' : '1px solid var(--border)', background: tags.includes(tag) ? 'var(--accent)' : 'var(--bg-secondary)', color: tags.includes(tag) ? 'white' : 'var(--text-secondary)'}}
                                                 onClick={() => toggleTag(tag)}
                                             >
-                                                {tag === 'matlåda' && '🥡'} {tag === 'snabb' && '⚡'} {tag === 'vegetarisk' && '🥬'} {tag}
+                                                {getTagEmoji(tag)} {tag}
                                             </button>
                                         ))}
                                     </div>
@@ -1925,7 +1955,7 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
             const [loading, setLoading] = useState(true);
             const [saving, setSaving] = useState(false);
 
-            const availableTags = ['matlåda', 'snabb', 'vegetarisk'];
+            const availableTags = ['matlåda', 'snabb', 'jul', 'påsk', 'midsommar', 'gryta', 'soppa', 'fisk', 'kött', 'kyckling', 'billigt'];
 
             useEffect(() => {
                 loadData();
@@ -2096,7 +2126,7 @@ const handleSelectRecipe = async (recipeId, customServings, targetDay = null) =>
                                                 style={{cursor: 'pointer', border: tags.includes(tag) ? 'none' : '1px solid var(--border)', background: tags.includes(tag) ? 'var(--accent)' : 'var(--bg-secondary)', color: tags.includes(tag) ? 'white' : 'var(--text-secondary)'}}
                                                 onClick={() => toggleTag(tag)}
                                             >
-                                                {tag === 'matlåda' && '🥡'} {tag === 'snabb' && '⚡'} {tag === 'vegetarisk' && '🥬'} {tag}
+                                                {getTagEmoji(tag)} {tag}
                                             </button>
                                         ))}
                                     </div>
