@@ -1106,53 +1106,103 @@ const handleSelectRecipe = async (recipeId, customServings) => {
 // Recipe Selector Modal
         function RecipeSelectorModal({ recipes, onSelect, onClose }) {
             const [search, setSearch] = useState('');
-            const [filter, setFilter] = useState('all');
+            const [selectedRecipe, setSelectedRecipe] = useState(null);
+            const [customServings, setCustomServings] = useState(4);
 
             const filteredRecipes = recipes.filter(recipe => {
-                const matchesSearch = recipe.name.toLowerCase().includes(search.toLowerCase());
-                // Filter logic will be added when tags are loaded
-                return matchesSearch;
+                return recipe.name.toLowerCase().includes(search.toLowerCase());
             });
+
+            const handleRecipeClick = (recipe) => {
+                setSelectedRecipe(recipe);
+                setCustomServings(recipe.servings); // Default to recipe's servings
+            };
+
+            const handleConfirm = () => {
+                onSelect(selectedRecipe.id, customServings);
+                setSelectedRecipe(null);
+            };
 
             return (
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2 className="modal-title">Välj recept</h2>
+                            <h2 className="modal-title">
+                                {selectedRecipe ? 'Välj antal portioner' : 'Välj recept'}
+                            </h2>
                             <button className="modal-close" onClick={onClose}>×</button>
                         </div>
                         <div className="modal-body">
-                            <div className="form-group">
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="Sök recept..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="recipe-grid">
-                                {filteredRecipes.map(recipe => (
-                                    <div 
-                                        key={recipe.id} 
-                                        className="recipe-card"
-                                        onClick={() => onSelect(recipe.id)}
-                                    >
-                                        {recipe.image_url && (
-                                            <img src={recipe.image_url} alt={recipe.name} className="recipe-image" />
-                                        )}
-                                        <div className="recipe-content">
-                                            <h3 className="recipe-name">{recipe.name}</h3>
-                                        </div>
+                            {!selectedRecipe ? (
+                                <>
+                                    <div className="form-group">
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="Sök recept..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                        />
                                     </div>
-                                ))}
-                            </div>
 
-                            {filteredRecipes.length === 0 && (
-                                <p className="text-center" style={{color: 'var(--text-muted)', padding: '3rem'}}>
-                                    Inga recept hittades
-                                </p>
+                                    <div className="recipe-grid">
+                                        {filteredRecipes.map(recipe => (
+                                            <div 
+                                                key={recipe.id} 
+                                                className="recipe-card"
+                                                onClick={() => handleRecipeClick(recipe)}
+                                            >
+                                                {recipe.image_url && (
+                                                    <img src={recipe.image_url} alt={recipe.name} className="recipe-image" />
+                                                )}
+                                                <div className="recipe-content">
+                                                    <h3 className="recipe-name">{recipe.name}</h3>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {filteredRecipes.length === 0 && (
+                                        <p className="text-center" style={{color: 'var(--text-muted)', padding: '3rem'}}>
+                                            Inga recept hittades
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{textAlign: 'center', padding: '2rem'}}>
+                                    <h3 style={{marginBottom: '2rem'}}>{selectedRecipe.name}</h3>
+                                    <div className="form-group">
+                                        <label className="form-label" style={{textAlign: 'center'}}>
+                                            Hur många portioner vill du laga?
+                                        </label>
+                                        <select
+                                            className="form-input"
+                                            value={customServings}
+                                            onChange={(e) => setCustomServings(parseInt(e.target.value))}
+                                            style={{maxWidth: '200px', margin: '0 auto'}}
+                                        >
+                                            <option value="2">2 portioner</option>
+                                            <option value="4">4 portioner</option>
+                                            <option value="6">6 portioner</option>
+                                            <option value="8">8 portioner</option>
+                                            <option value="10">10 portioner</option>
+                                        </select>
+                                    </div>
+                                    <div style={{display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '2rem'}}>
+                                        <button 
+                                            className="btn btn-secondary"
+                                            onClick={() => setSelectedRecipe(null)}
+                                        >
+                                            Tillbaka
+                                        </button>
+                                        <button 
+                                            className="btn btn-primary"
+                                            onClick={handleConfirm}
+                                        >
+                                            Lägg till
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
